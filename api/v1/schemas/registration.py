@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, root_validator
 from typing import Optional
 from datetime import date
 
@@ -32,6 +32,24 @@ class UserView(UserRegistration):
     floor: Optional[int]
     bed_number: Optional[int]
     phone_number: Optional[str]
+    display_floor: Optional[str] = None  # ⬅️ new field
+
+    @root_validator(pre=True)
+    def map_display_floor(cls, values):
+        floor_number = values.get("floor", None)
+        if floor_number is not None:
+            floor_map = {
+                0: "Ground Floor",
+                1: "First Floor",
+                2: "Second Floor",
+                3: "Third Floor",
+                4: "Fourth Floor",
+                5: "Fifth Floor",
+            }
+            values["display_floor"] = floor_map.get(
+                floor_number, f"Floor {floor_number}"
+            )
+        return values
 
     class Config:
         orm_mode = True
