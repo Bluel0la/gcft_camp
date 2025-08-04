@@ -35,7 +35,7 @@ def register_phone_number(
 
 
 @registration_route.post(
-    "/register-user/{number}", response_model=registration.UserRegistration
+    "/register-user/{number}", response_model=registration.UserView
 )
 def register_user(
     number: str, payload: registration.UserRegistration, db: Session = Depends(get_db)
