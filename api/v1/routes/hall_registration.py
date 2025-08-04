@@ -58,7 +58,7 @@ def register_user(
             status_code=409, detail="User already registered with this phone number."
         )
 
-    # Step 3: Fetch all matching category records (multi-floor support)
+    # Step 3: Fetch all matching category records (support multi-floor allocation)
     category_records = (
         db.query(category.Category)
         .filter(category.Category.category_name == payload.category)
@@ -70,7 +70,7 @@ def register_user(
             status_code=404, detail="No allocation found for this category."
         )
 
-    # Step 4: Try each category floor to find available bed
+    # Step 4: Try to allocate a bed on each floor until successful
     floor_allocation = None
     next_bed = None
 
@@ -102,9 +102,9 @@ def register_user(
             detail="No available beds for this category allocation.",
         )
 
-    # Step 5: Register the user with allocated hall/floor/bed
+    # Step 5: Register the user with clean unpacking + manual hall/floor/bed insertion
     new_user = user.User(
-        **payload.dict(),
+        **payload.dict(exclude={"hall_name", "floor", "bed_number", "phone_number_id"}),
         phone_number_id=phone.id,
         hall_name=floor_allocation.hall_name,
         floor=floor_allocation.floor_allocated,
