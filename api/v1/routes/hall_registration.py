@@ -134,7 +134,5 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
             status_code=404, detail="No user registered with this number."
         )
 
-    # Step 3: Attach phone_number manually (optional)
-    result = registration.UserView.from_orm(user_record)
-    result.phone_number = phone.phone_number
-    return result
+    # Step 3: Use from_orm_with_display to return enhanced view
+    return registration.UserView.from_orm_with_display(user_record, phone.phone_number)

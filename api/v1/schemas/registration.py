@@ -41,9 +41,8 @@ class UserDisplay(UserView):
     display_floor: Optional[str]
     model_config = ConfigDict(from_attributes=True)
 
-
     @classmethod
-    def from_orm_with_display(cls, obj):
+    def from_orm_with_display(cls, obj, phone_number: Optional[str] = None):
         base = cls.from_orm(obj)
         floor_map = {
             0: "Ground Floor",
@@ -54,4 +53,5 @@ class UserDisplay(UserView):
             5: "Fifth Floor",
         }
         base.display_floor = floor_map.get(base.floor, f"Floor {base.floor}")
+        base.phone_number = phone_number
         return base
