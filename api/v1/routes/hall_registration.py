@@ -114,7 +114,7 @@ def register_user(
     return registration.UserDisplay.from_orm_with_display(new_user, phone_number=number)
 
 
-@registration_route.get("/user/{number}", response_model=registration.UserView)
+@registration_route.get("/user/{number}", response_model=registration.UserDisplay)
 def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
     # Step 1: Lookup the phone record
     phone = (
@@ -135,4 +135,4 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         )
 
     # Step 3: Use from_orm_with_display to return enhanced view
-    return registration.UserView.from_orm_with_display(user_record, phone.phone_number)
+    return registration.UserDisplay.from_orm_with_display(user_record, phone.phone_number)
