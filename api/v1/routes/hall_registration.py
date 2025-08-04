@@ -148,3 +148,27 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         "display_floor": floor_map.get(user_record.floor, f"Floor {user_record.floor}"),
         "bed_number": user_record.bed_number,
     }
+
+
+# in your registration_route (hall_registration.py or equivalent)
+@registration_route.get("/users", response_model=list[registration.UserSummary])
+def get_all_users(db: Session = Depends(get_db)):
+    users = db.query(user.User).all()
+
+    phone_map = {
+        record.id: record.phone_number
+        for record in db.query(phone_number.PhoneNumber).all()
+    }
+
+    return [
+        registration.UserSummary(
+            id=u.id,
+            first_name=u.first_name,
+            category=u.category,
+            hall_name=u.hall_name,
+            floor=u.floor,
+            bed_number=u.bed_number,
+            phone_number=phone_map.get(u.phone_number_id),
+        )
+        for u in users
+    ]
