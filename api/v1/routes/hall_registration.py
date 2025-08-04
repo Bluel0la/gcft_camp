@@ -38,9 +38,7 @@ def register_phone_number(
     "/register-user/{number}", response_model=registration.UserRegistration
 )
 def register_user(
-    number: str, 
-    payload: registration.UserRegistration, 
-    db: Session = Depends(get_db)
+    number: str, payload: registration.UserRegistration, db: Session = Depends(get_db)
 ):
     # Step 1: Ensure the phone number exists
     phone = (
@@ -53,57 +51,64 @@ def register_user(
 
     # Step 2: Prevent duplicate registration using same phone number
     existing_user = (
-        db.query(user.User)
-        .filter(user.User.phone_number_id == phone.id)
-        .first()
+        db.query(user.User).filter(user.User.phone_number_id == phone.id).first()
     )
     if existing_user:
         raise HTTPException(
             status_code=409, detail="User already registered with this phone number."
         )
 
-    # Step 3: Fetch category allocation info
-    category_record = (
+    # Step 3: Fetch all matching category records (multi-floor support)
+    category_records = (
         db.query(category.Category)
         .filter(category.Category.category_name == payload.category)
-        .first()
+        .order_by(category.Category.floor_allocated.asc())
+        .all()
     )
-    if not category_record:
+    if not category_records:
         raise HTTPException(
             status_code=404, detail="No allocation found for this category."
         )
 
-    # Step 4: Get all assigned bed numbers in this hall/floor/category zone
-    assigned_beds = (
-        db.query(user.User.bed_number)
-        .filter(
-            user.User.category == category_record.category_name,
-            user.User.hall_name == category_record.hall_name,
-            user.User.floor == category_record.floor_allocated,
-        )
-        .order_by(user.User.bed_number.asc())
-        .all()
-    )
-    assigned_bed_numbers = [b[0] for b in assigned_beds]
+    # Step 4: Try each category floor to find available bed
+    floor_allocation = None
+    next_bed = None
 
-    # Step 5: Allocate lowest available bed number from 1 → N
-    for i in range(1, category_record.no_beds + 1):
-        if i not in assigned_bed_numbers:
-            bed_number = i
+    for record in category_records:
+        assigned_beds = (
+            db.query(user.User.bed_number)
+            .filter(
+                user.User.category == record.category_name,
+                user.User.hall_name == record.hall_name,
+                user.User.floor == record.floor_allocated,
+            )
+            .order_by(user.User.bed_number.asc())
+            .all()
+        )
+        assigned_bed_numbers = [b[0] for b in assigned_beds]
+
+        for i in range(1, record.no_beds + 1):
+            if i not in assigned_bed_numbers:
+                next_bed = i
+                floor_allocation = record
+                break
+
+        if floor_allocation:
             break
-    else:
+
+    if not floor_allocation or not next_bed:
         raise HTTPException(
             status_code=400,
             detail="No available beds for this category allocation.",
         )
 
-    # Step 6: Register the user with allocated bed
+    # Step 5: Register the user with allocated hall/floor/bed
     new_user = user.User(
         **payload.dict(),
         phone_number_id=phone.id,
-        hall_name=category_record.hall_name,
-        floor=category_record.floor_allocated,
-        bed_number=bed_number,
+        hall_name=floor_allocation.hall_name,
+        floor=floor_allocation.floor_allocated,
+        bed_number=next_bed,
     )
     db.add(new_user)
     db.commit()
