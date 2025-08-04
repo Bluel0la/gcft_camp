@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import date
 
@@ -39,6 +39,8 @@ class UserView(UserBase):
 
 class UserDisplay(UserView):
     display_floor: Optional[str]
+    model_config = ConfigDict(from_attributes=True)
+
 
     @classmethod
     def from_orm_with_display(cls, obj):
