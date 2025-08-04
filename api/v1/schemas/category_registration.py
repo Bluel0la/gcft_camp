@@ -5,7 +5,7 @@ from typing import Optional
 class CategoryBase(BaseModel):
     category_name: str
     hall_name: str
-    floor_allocated: int
+    floor_allocated: str
     no_beds: int
 
 
@@ -16,7 +16,7 @@ class CategoryCreate(CategoryBase):
 class CategoryUpdate(BaseModel):
     category_name: Optional[str] = None
     hall_name: Optional[str] = None
-    floor_allocated: Optional[int] = None
+    floor_allocated: Optional[str] = None
     no_beds: Optional[int] = None
 
 

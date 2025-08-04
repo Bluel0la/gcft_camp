@@ -9,7 +9,7 @@ class Category(Base):
     id = Column(Integer, primary_key=True, index=True)
     category_name = Column(String, nullable=False)
     hall_name = Column(String, ForeignKey("halls.hall_name"), nullable=False)
-    floor_allocated = Column(Integer, nullable=False)
+    floor_allocated = Column(String, nullable=False)
     no_beds = Column(Integer, nullable=False)
 
     hall = relationship("Hall", back_populates="categories")
