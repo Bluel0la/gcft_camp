@@ -111,7 +111,7 @@ def register_user(
     db.commit()
     db.refresh(new_user)
 
-    return registration.UserDisplay.from_orm_with_display(new_user)
+    return registration.UserDisplay.from_orm_with_display(new_user, phone_number=number)
 
 
 @registration_route.get("/user/{number}", response_model=registration.UserView)
