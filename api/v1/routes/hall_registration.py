@@ -116,7 +116,7 @@ def register_user(
 
 @registration_route.get("/user/{number}", response_model=registration.UserDisplay)
 def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
-    # Step 1: Lookup the phone record
+    # Step 1: Lookup phone record
     phone = (
         db.query(phone_number.PhoneNumber)
         .filter(phone_number.PhoneNumber.phone_number == number)
@@ -125,14 +125,23 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
     if not phone:
         raise HTTPException(status_code=404, detail="Phone number not found.")
 
-    # Step 2: Lookup the user registered under this number
+    # Step 2: Lookup registered user
     user_record = (
         db.query(user.User).filter(user.User.phone_number_id == phone.id).first()
     )
     if not user_record:
-        raise HTTPException(
-            status_code=404, detail="No user registered with this number."
-        )
+        raise HTTPException(status_code=404, detail="User not registered.")
 
-    # Step 3: Use from_orm_with_display to return enhanced view
-    return registration.UserDisplay.from_orm_with_display(user_record, phone.phone_number)
+    # Step 3: Construct full display
+    full_data = registration.UserDisplay.from_orm_with_display(
+        user_record, phone.phone_number
+    )
+
+    # Step 4: Only return specific fields (filtered)
+    return {
+        "phone_number": full_data.phone_number,
+        "hall_name": full_data.hall_name,
+        "floor": full_data.floor,
+        "display_floor": full_data.display_floor,
+        "bed_number": full_data.bed_number,
+    }
