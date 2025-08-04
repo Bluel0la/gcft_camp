@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from datetime import date
 
@@ -31,14 +31,14 @@ class UserView(UserBase):
     hall_name: Optional[str]
     floor: Optional[int]
     bed_number: Optional[int]
-    phone_number: Optional[str]
+    phone_number: Optional[str] = Field(default=None)
 
     class Config:
         orm_mode = True
 
 
 class UserDisplay(UserView):
-    display_floor: Optional[str]
+    display_floor: Optional[str] = Field(default=None)
     model_config = ConfigDict(from_attributes=True)
 
     @classmethod
