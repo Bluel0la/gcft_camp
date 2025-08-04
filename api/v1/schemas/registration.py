@@ -55,3 +55,13 @@ class UserDisplay(UserView):
         base.display_floor = floor_map.get(base.floor, f"Floor {base.floor}")
         base.phone_number = phone_number
         return base
+
+
+class UserSummary(BaseModel):
+    phone_number: str
+    hall_name: str
+    floor: int
+    display_floor: str
+    bed_number: int
+
+    model_config = ConfigDict(from_attributes=True)

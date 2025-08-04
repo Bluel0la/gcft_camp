@@ -114,9 +114,8 @@ def register_user(
     return registration.UserDisplay.from_orm_with_display(new_user, phone_number=number)
 
 
-@registration_route.get("/user/{number}", response_model=registration.UserDisplay)
+@registration_route.get("/user/{number}", response_model=registration.UserSummary)
 def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
-    # Step 1: Lookup phone record
     phone = (
         db.query(phone_number.PhoneNumber)
         .filter(phone_number.PhoneNumber.phone_number == number)
@@ -125,23 +124,27 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
     if not phone:
         raise HTTPException(status_code=404, detail="Phone number not found.")
 
-    # Step 2: Lookup registered user
     user_record = (
         db.query(user.User).filter(user.User.phone_number_id == phone.id).first()
     )
     if not user_record:
-        raise HTTPException(status_code=404, detail="User not registered.")
+        raise HTTPException(
+            status_code=404, detail="No user registered with this number."
+        )
 
-    # Step 3: Construct full display
-    full_data = registration.UserDisplay.from_orm_with_display(
-        user_record, phone.phone_number
-    )
+    floor_map = {
+        0: "Ground Floor",
+        1: "First Floor",
+        2: "Second Floor",
+        3: "Third Floor",
+        4: "Fourth Floor",
+        5: "Fifth Floor",
+    }
 
-    # Step 4: Only return specific fields (filtered)
     return {
-        "phone_number": full_data.phone_number,
-        "hall_name": full_data.hall_name,
-        "floor": full_data.floor,
-        "display_floor": full_data.display_floor,
-        "bed_number": full_data.bed_number,
+        "phone_number": phone.phone_number,
+        "hall_name": user_record.hall_name,
+        "floor": user_record.floor,
+        "display_floor": floor_map.get(user_record.floor, f"Floor {user_record.floor}"),
+        "bed_number": user_record.bed_number,
     }
