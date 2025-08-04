@@ -35,12 +35,12 @@ def register_phone_number(
 
 
 @registration_route.post(
-    "/register-user/{number}", response_model=registration.UserView
+    "/register-user/{number}", response_model=registration.UserDisplay
 )
 def register_user(
     number: str, payload: registration.UserRegistration, db: Session = Depends(get_db)
 ):
-    # Step 1: Ensure the phone number exists
+    # Step 1: Check phone number
     phone = (
         db.query(phone_number.PhoneNumber)
         .filter(phone_number.PhoneNumber.phone_number == number)
@@ -49,7 +49,7 @@ def register_user(
     if not phone:
         raise HTTPException(status_code=404, detail="Phone number not found.")
 
-    # Step 2: Prevent duplicate registration using same phone number
+    # Step 2: Ensure user hasn't registered
     existing_user = (
         db.query(user.User).filter(user.User.phone_number_id == phone.id).first()
     )
@@ -58,7 +58,7 @@ def register_user(
             status_code=409, detail="User already registered with this phone number."
         )
 
-    # Step 3: Fetch all matching category records (support multi-floor allocation)
+    # Step 3: Get all category allocations (multi-floor)
     category_records = (
         db.query(category.Category)
         .filter(category.Category.category_name == payload.category)
@@ -70,10 +70,9 @@ def register_user(
             status_code=404, detail="No allocation found for this category."
         )
 
-    # Step 4: Try to allocate a bed on each floor until successful
+    # Step 4: Find next available bed
     floor_allocation = None
     next_bed = None
-
     for record in category_records:
         assigned_beds = (
             db.query(user.User.bed_number)
@@ -86,13 +85,11 @@ def register_user(
             .all()
         )
         assigned_bed_numbers = [b[0] for b in assigned_beds]
-
         for i in range(1, record.no_beds + 1):
             if i not in assigned_bed_numbers:
                 next_bed = i
                 floor_allocation = record
                 break
-
         if floor_allocation:
             break
 
@@ -102,7 +99,7 @@ def register_user(
             detail="No available beds for this category allocation.",
         )
 
-    # Step 5: Register the user with clean unpacking + manual hall/floor/bed insertion
+    # Step 5: Register user
     new_user = user.User(
         **payload.dict(exclude={"hall_name", "floor", "bed_number", "phone_number_id"}),
         phone_number_id=phone.id,
@@ -113,7 +110,8 @@ def register_user(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
+
+    return registration.UserDisplay.from_orm_with_display(new_user)
 
 
 @registration_route.get("/user/{number}", response_model=registration.UserView)
