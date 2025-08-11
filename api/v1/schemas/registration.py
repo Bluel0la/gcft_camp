@@ -28,9 +28,6 @@ class UserRegistration(UserBase):
 
 class UserView(UserBase):
     id: int
-    hall_name: Optional[str]
-    floor: Optional[int]
-    bed_number: Optional[int]
     phone_number: Optional[str] = Field(default=None)
 
     class Config:
@@ -58,10 +55,14 @@ class UserDisplay(UserView):
 
 
 class UserSummary(BaseModel):
-    phone_number: str
+    id: int
+    first_name: str
+    category: str
     hall_name: str
     floor: int
-    display_floor: str
+    display_floor: Optional[str] = None
     bed_number: int
+    phone_number: str
+
 
     model_config = ConfigDict(from_attributes=True)

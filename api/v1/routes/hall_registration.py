@@ -85,7 +85,7 @@ def register_user(
             .all()
         )
         assigned_bed_numbers = [b[0] for b in assigned_beds]
-        for i in range(1, record.no_beds + 1):
+        for i in range(1, int(record.no_beds) + 1):
             if i not in assigned_bed_numbers:
                 next_bed = i
                 floor_allocation = record
@@ -141,16 +141,18 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         5: "Fifth Floor",
     }
 
-    return {
-        "phone_number": phone.phone_number,
+    return{
+        "id": user_record.id,
+        "first_name": user_record.first_name,
+        "category": user_record.category,
         "hall_name": user_record.hall_name,
         "floor": user_record.floor,
         "display_floor": floor_map.get(user_record.floor, f"Floor {user_record.floor}"),
         "bed_number": user_record.bed_number,
+        "phone_number": phone.phone_number,
     }
 
 
-# in your registration_route (hall_registration.py or equivalent)
 @registration_route.get("/users", response_model=list[registration.UserSummary])
 def get_all_users(db: Session = Depends(get_db)):
     users = db.query(user.User).all()
@@ -162,13 +164,23 @@ def get_all_users(db: Session = Depends(get_db)):
 
     return [
         registration.UserSummary(
-            id=u.id,
-            first_name=u.first_name,
-            category=u.category,
-            hall_name=u.hall_name,
-            floor=u.floor,
-            bed_number=u.bed_number,
-            phone_number=phone_map.get(u.phone_number_id),
+            id=user.id,
+            first_name=user.first_name,
+            category=user.category,
+            hall_name=user.hall_name,
+            floor=user.floor,
+            display_floor=(
+                {
+                    0: "Ground Floor",
+                    1: "First Floor",
+                    2: "Second Floor",
+                    3: "Third Floor",
+                    4: "Fourth Floor",
+                    5: "Fifth Floor",
+                }.get(user.floor, f"Floor {user.floor}")
+            ),
+            bed_number=user.bed_number,
+            phone_number=phone_map.get(user.phone_number_id, "Unknown"),
         )
-        for u in users
+        for user in users
     ]
