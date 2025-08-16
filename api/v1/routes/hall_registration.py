@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from api.v1.schemas import phone_registration, registration, category_registration, hall_registration
 from api.v1.models import phone_number, user, category, hall
+from api.v1.models import hall as hall_model
 from api.db.database import get_db
 from datetime import datetime
 
@@ -74,6 +75,19 @@ def register_user(
     floor_allocation = None
     next_bed = None
     for record in category_records:
+        # First check if hall has available capacity
+        hall_record = (
+            db.query(hall_model.Hall)
+            .filter(hall_model.Hall.hall_name == record.hall_name)
+            .first()
+        )
+        if not hall_record:
+            continue  # skip if hall missing (unlikely)
+
+        if hall_record.no_allocated_beds >= hall_record.no_beds:
+            continue  # skip full halls
+
+        # Check next free bed in this allocation
         assigned_beds = (
             db.query(user.User.bed_number)
             .filter(
@@ -96,7 +110,7 @@ def register_user(
     if not floor_allocation or not next_bed:
         raise HTTPException(
             status_code=400,
-            detail="No available beds for this category allocation.",
+            detail="No available beds for this category allocation or hall is full.",
         )
 
     # Step 5: Register user
@@ -110,6 +124,17 @@ def register_user(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    # Step 6: Increment hall allocated bed count
+    hall_record = (
+        db.query(hall_model.Hall)
+        .filter(hall_model.Hall.hall_name == floor_allocation.hall_name)
+        .first()
+    )
+    if hall_record:
+        hall_record.no_allocated_beds += 1
+        db.commit()
+        db.refresh(hall_record)
 
     return registration.UserDisplay.from_orm_with_display(new_user, phone_number=number)
 
