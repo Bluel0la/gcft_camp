@@ -40,7 +40,7 @@ def register_phone_number(
 @registration_route.post(
     "/register-user/{number}", response_model=registration.UserDisplay
 )
-def register_user(
+async def register_user(
     number: str, payload: registration.UserRegistration, db: Session = Depends(get_db)
 ):
     # Step 1: Check phone number
