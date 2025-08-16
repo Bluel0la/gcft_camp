@@ -5,7 +5,7 @@ from typing import Optional
 class HallBase(BaseModel):
     hall_name: str
     no_beds: int
-    category_allocated: str
+    category_allocated: Optional[str]
     no_floors: int
 
 
