@@ -9,7 +9,6 @@ class Hall(Base):
     id = Column(Integer, primary_key=True, index=True)
     hall_name = Column(String, unique=True, nullable=False)
     no_beds = Column(Integer, nullable=False)
-    category_allocated = Column(String, default="default_category")
     no_floors = Column(Integer, nullable=False)
 
     residents = relationship("User", back_populates="hall")
