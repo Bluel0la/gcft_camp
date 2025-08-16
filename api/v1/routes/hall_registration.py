@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from api.v1.schemas import phone_registration, registration, category_registration, hall_registration
+from api.v1.services.full_halls import send_hall_full_email
 from api.v1.models import phone_number, user, category, hall
 from api.v1.models import hall as hall_model
 from api.db.database import get_db
 from datetime import datetime
+import asyncio
 
 registration_route = APIRouter(tags=["Hall Registration"])
 
@@ -135,6 +137,12 @@ def register_user(
         hall_record.no_allocated_beds += 1
         db.commit()
         db.refresh(hall_record)
+
+        # If hall is now full, send alert email asynchronously
+        if int(hall_record.no_allocated_beds) == int(hall_record.no_beds):
+            asyncio.create_task(
+                send_hall_full_email(hall_record, floor_allocation.category_name)
+            )
 
     return registration.UserDisplay.from_orm_with_display(new_user, phone_number=number)
 
