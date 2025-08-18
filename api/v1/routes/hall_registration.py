@@ -79,18 +79,32 @@ async def register_user(
     assigned_beds = []
     hall_record = None
 
-    # Step 4: Find next available beds
+    # Step 4: Find next available beds (floor-by-floor)
     for record in category_records:
         hall_record = (
             db.query(hall_model.Hall)
             .filter(hall_model.Hall.hall_name == record.hall_name)
             .first()
         )
-        if (
-            not hall_record
-            or hall_record.no_allocated_beds + beds_needed > hall_record.no_beds
-        ):
-            continue  # skip if hall missing or insufficient space
+        if not hall_record:
+            continue  # hall not found, skip
+
+        # --- Per-floor allocation check ---
+        used_on_floor = (
+            db.query(user.User)
+            .filter(
+                user.User.category == record.category_name,
+                user.User.hall_name == record.hall_name,
+                user.User.floor == record.floor_allocated,
+            )
+            .count()
+        )
+        if used_on_floor + beds_needed > record.no_beds:
+            continue  # floor allocation is full
+
+        # --- Hall-wide capacity check ---
+        if hall_record.no_allocated_beds + beds_needed > hall_record.no_beds:
+            continue  # entire hall is full
 
         # Get already assigned bed numbers (including extra beds)
         taken = (
@@ -109,11 +123,10 @@ async def register_user(
             if primary is not None:
                 taken_numbers.add(primary)
             if extras:
-                # Ensure extras is always treated as a list
+                # Ensure extras is treated as a list
                 if isinstance(extras, list):
                     taken_numbers.update(extras)
                 else:
-                    # Fallback if stored as a JSON string
                     try:
                         import json
 
@@ -121,7 +134,7 @@ async def register_user(
                         if isinstance(extra_list, list):
                             taken_numbers.update(extra_list)
                     except Exception:
-                        pass  # ignore malformed data
+                        pass
 
         # Find first N free beds (not necessarily consecutive)
         free_beds = []
@@ -142,16 +155,22 @@ async def register_user(
             detail="No available beds for this category allocation or hall is full.",
         )
 
-    # Step 5: Register user (store primary bed number; extra beds can be handled via a field)
+    # Step 5: Register user (store primary + extra beds)
     new_user = user.User(
-        **payload.dict(exclude={"hall_name", "floor", "bed_number", "phone_number_id", "extra_beds"}),
+        **payload.dict(
+            exclude={
+                "hall_name",
+                "floor",
+                "bed_number",
+                "phone_number_id",
+                "extra_beds",
+            }
+        ),
         phone_number_id=phone.id,
         hall_name=floor_allocation.hall_name,
         floor=floor_allocation.floor_allocated,
-        bed_number=assigned_beds[0],  # main bed
-        extra_beds=(
-            assigned_beds[1:] if len(assigned_beds) > 1 else None
-        ),  # optional field
+        bed_number=assigned_beds[0],
+        extra_beds=(assigned_beds[1:] if len(assigned_beds) > 1 else None),
     )
     db.add(new_user)
     db.commit()
