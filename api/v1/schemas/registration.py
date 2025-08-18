@@ -20,6 +20,9 @@ class UserBase(BaseModel):
     hall_name: Optional[str] = None
     floor: Optional[int] = None
     bed_number: Optional[int] = None
+    extra_beds: Optional[list[int]] = None  # Add this line
+
+    
 
 
 class UserRegistration(UserBase):
@@ -62,6 +65,7 @@ class UserSummary(BaseModel):
     floor: int
     display_floor: Optional[str] = None
     bed_number: int
+    extra_beds: Optional[list[int]] = None
     phone_number: str
 
 

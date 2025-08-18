@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from api.db.database import Base
 
@@ -24,6 +24,7 @@ class User(Base):
     hall_name = Column(String, ForeignKey("halls.hall_name"), nullable=True)
     floor = Column(Integer, nullable=True)
     bed_number = Column(Integer, nullable=True)
+    extra_beds = Column(JSON, nullable=True)
 
     phone = relationship("PhoneNumber", back_populates="user")
     hall = relationship("Hall", back_populates="residents")

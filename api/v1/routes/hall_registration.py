@@ -5,6 +5,7 @@ from api.v1.services.full_halls import send_hall_full_email
 from api.v1.models import phone_number, user, category, hall
 from api.v1.models import hall as hall_model
 from api.db.database import get_db
+from api.utils.bed_allocation import beds_required
 from datetime import datetime
 import asyncio
 
@@ -73,25 +74,27 @@ async def register_user(
             status_code=404, detail="No allocation found for this category."
         )
 
-    # Step 4: Find next available bed
+    beds_needed = beds_required(payload.no_children)
     floor_allocation = None
-    next_bed = None
+    assigned_beds = []
+    hall_record = None
+
+    # Step 4: Find next available beds
     for record in category_records:
-        # First check if hall has available capacity
         hall_record = (
             db.query(hall_model.Hall)
             .filter(hall_model.Hall.hall_name == record.hall_name)
             .first()
         )
-        if not hall_record:
-            continue  # skip if hall missing (unlikely)
+        if (
+            not hall_record
+            or hall_record.no_allocated_beds + beds_needed > hall_record.no_beds
+        ):
+            continue  # skip if hall missing or insufficient space
 
-        if hall_record.no_allocated_beds >= hall_record.no_beds:
-            continue  # skip full halls
-
-        # Check next free bed in this allocation
-        assigned_beds = (
-            db.query(user.User.bed_number)
+        # Get already assigned bed numbers (including extra beds)
+        taken = (
+            db.query(user.User.bed_number, user.User.extra_beds)
             .filter(
                 user.User.category == record.category_name,
                 user.User.hall_name == record.hall_name,
@@ -100,41 +103,63 @@ async def register_user(
             .order_by(user.User.bed_number.asc())
             .all()
         )
-        assigned_bed_numbers = [b[0] for b in assigned_beds]
+
+        taken_numbers = set()
+        for primary, extras in taken:
+            if primary is not None:
+                taken_numbers.add(primary)
+            if extras:
+                # Ensure extras is always treated as a list
+                if isinstance(extras, list):
+                    taken_numbers.update(extras)
+                else:
+                    # Fallback if stored as a JSON string
+                    try:
+                        import json
+
+                        extra_list = json.loads(extras)
+                        if isinstance(extra_list, list):
+                            taken_numbers.update(extra_list)
+                    except Exception:
+                        pass  # ignore malformed data
+
+        # Find first N free beds (not necessarily consecutive)
+        free_beds = []
         for i in range(1, int(record.no_beds) + 1):
-            if i not in assigned_bed_numbers:
-                next_bed = i
-                floor_allocation = record
-                break
-        if floor_allocation:
+            if i not in taken_numbers:
+                free_beds.append(i)
+                if len(free_beds) == beds_needed:
+                    break
+
+        if len(free_beds) == beds_needed:
+            assigned_beds = free_beds
+            floor_allocation = record
             break
 
-    if not floor_allocation or not next_bed:
+    if not floor_allocation or len(assigned_beds) != beds_needed:
         raise HTTPException(
             status_code=400,
             detail="No available beds for this category allocation or hall is full.",
         )
 
-    # Step 5: Register user
+    # Step 5: Register user (store primary bed number; extra beds can be handled via a field)
     new_user = user.User(
-        **payload.dict(exclude={"hall_name", "floor", "bed_number", "phone_number_id"}),
+        **payload.dict(exclude={"hall_name", "floor", "bed_number", "phone_number_id", "extra_beds"}),
         phone_number_id=phone.id,
         hall_name=floor_allocation.hall_name,
         floor=floor_allocation.floor_allocated,
-        bed_number=next_bed,
+        bed_number=assigned_beds[0],  # main bed
+        extra_beds=(
+            assigned_beds[1:] if len(assigned_beds) > 1 else None
+        ),  # optional field
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    # Step 6: Increment hall allocated bed count
-    hall_record = (
-        db.query(hall_model.Hall)
-        .filter(hall_model.Hall.hall_name == floor_allocation.hall_name)
-        .first()
-    )
+    # Step 6: Increment hall allocated bed count by beds_needed
     if hall_record:
-        hall_record.no_allocated_beds += 1
+        hall_record.no_allocated_beds += beds_needed
         db.commit()
         db.refresh(hall_record)
 
@@ -174,7 +199,7 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         5: "Fifth Floor",
     }
 
-    return{
+    return {
         "id": user_record.id,
         "first_name": user_record.first_name,
         "category": user_record.category,
@@ -182,6 +207,7 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         "floor": user_record.floor,
         "display_floor": floor_map.get(user_record.floor, f"Floor {user_record.floor}"),
         "bed_number": user_record.bed_number,
+        "extra_beds": user_record.extra_beds or [],
         "phone_number": phone.phone_number,
     }
 
@@ -195,6 +221,15 @@ def get_all_users(db: Session = Depends(get_db)):
         for record in db.query(phone_number.PhoneNumber).all()
     }
 
+    floor_map = {
+        0: "Ground Floor",
+        1: "First Floor",
+        2: "Second Floor",
+        3: "Third Floor",
+        4: "Fourth Floor",
+        5: "Fifth Floor",
+    }
+
     return [
         registration.UserSummary(
             id=user.id,
@@ -202,17 +237,9 @@ def get_all_users(db: Session = Depends(get_db)):
             category=user.category,
             hall_name=user.hall_name,
             floor=user.floor,
-            display_floor=(
-                {
-                    0: "Ground Floor",
-                    1: "First Floor",
-                    2: "Second Floor",
-                    3: "Third Floor",
-                    4: "Fourth Floor",
-                    5: "Fifth Floor",
-                }.get(user.floor, f"Floor {user.floor}")
-            ),
+            display_floor=floor_map.get(user.floor, f"Floor {user.floor}"),
             bed_number=user.bed_number,
+            extra_beds=user.extra_beds or [],
             phone_number=phone_map.get(user.phone_number_id, "Unknown"),
         )
         for user in users
