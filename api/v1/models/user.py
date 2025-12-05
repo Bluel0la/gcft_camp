@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, JSON, Enum
 from sqlalchemy.orm import relationship
 from api.db.database import Base
 
@@ -11,7 +11,7 @@ class User(Base):
     category = Column(String, nullable=False)
     first_name = Column(String, nullable=False)
     gender = Column(String, nullable=False)
-    age = Column(Integer, nullable=False)
+    age_range = Column(Enum("10-17", "18-25", "26-35", "36-45", "45-55", "56-65", "66-70", "71+", name="age_range_enum"), nullable=False, default="18-25")
     marital_status = Column(String, nullable=False)
     no_children = Column(Integer, nullable=True)
     names_children = Column(String, nullable=True)
@@ -25,6 +25,7 @@ class User(Base):
     floor = Column(Integer, nullable=True)
     bed_number = Column(Integer, nullable=True)
     extra_beds = Column(JSON, nullable=True)
+    active_status = Column(Enum("active", "inactive", name="active_status_enum"), default="inactive", nullable=False)
 
     phone = relationship("PhoneNumber", back_populates="user")
     hall = relationship("Hall", back_populates="residents")
