@@ -30,17 +30,21 @@ def create_image_category(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Image category already exists.",
         )
-    
+
     new_category = ImageCategory(**payload.dict())
     db.add(new_category)
     db.commit()
     db.refresh(new_category)
-    
+
     return new_category
 
-@images_route.post("{category_id}/add_image/", response_model=ImageView)
+
+@images_route.post("/{category_id}/add_image/", response_model=ImageView)
 async def add_image_to_category(
-    category_id: int, image_name: str = None, file: UploadFile = File(...), db: Session = Depends(get_db)
+    category_id: int,
+    image_name: str = None,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
 ):
     # Check if the category exists
     category = db.query(ImageCategory).filter_by(id=category_id).first()
@@ -49,38 +53,48 @@ async def add_image_to_category(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Image category not found.",
         )
-    # Store the category name
     category_name = category.category_name
-    
+
     # Check the file type
     if not file.content_type.startswith("image/"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only images are allowed."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Only images are allowed."
         )
-    
-    # Auto-rename the image e.g
-    ext = file.filename.split('.')[-1]
+
+    # Auto-rename the image
+    ext = file.filename.split(".")[-1]
     unique_name = f"{uuid.uuid4().hex}.{ext}"
-    
-    
+
+    # Ensure category folder exists in Dropbox
+    from dropbox.exceptions import ApiError
+
+    folder_path = f"{BASE_PATH}/{category_name}" if BASE_PATH else f"/{category_name}"
+    try:
+        dbx.files_create_folder_v2(folder_path)
+    except ApiError as e:
+        # Ignore error if folder already exists
+        if not (hasattr(e.error, "is_path") and e.error.get_path().is_conflict()):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Dropbox folder creation failed: {e}",
+            )
+
     # Upload to Dropbox
     file_bytes = await file.read()
-    dropbox_path = f"/{BASE_PATH}/{category_name}/{unique_name}"
+    dropbox_path = f"{folder_path}/{unique_name}"
     image_url = upload_to_dropbox(file_bytes, dropbox_path)
-    
+
     # Save to the DB
     new_image = Image(
-        image_name= image_name or unique_name,
+        image_name=image_name or unique_name,
         image_url=image_url,
         category_id=category_id,
-        status="in-use"
+        status="in-use",
     )
-    
     db.add(new_image)
     db.commit()
     db.refresh(new_image)
-    
+
     return new_image
 
 
@@ -132,6 +146,6 @@ def delete_image(
     # Delete the image from the database
     db.delete(image)
     # Delete the image from Dropbox
-    dropbox_path = f"/{BASE_PATH}/{category_name}/{image.image_name}"
+    dropbox_path = f"{BASE_PATH}/{category_name}/{image.image_name}"
     delete_from_dropbox(dropbox_path)
     db.commit()
