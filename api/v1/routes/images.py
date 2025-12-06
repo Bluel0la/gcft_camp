@@ -1,6 +1,6 @@
 from api.v1.schemas.Images import ImageCategoryCreate, ImageCategoryView, ImageCreate, ImageView
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
-from api.utils.file_upload import upload_to_dropbox, delete_from_dropbox
+from api.utils.file_upload import upload_to_dropbox, delete_from_dropbox, dbx
 from api.v1.models.image_categories import ImageCategory
 from api.v1.models.images import Image
 from sqlalchemy.orm import Session
