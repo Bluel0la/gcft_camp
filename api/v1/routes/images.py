@@ -1,10 +1,15 @@
 from api.v1.schemas.Images import ImageCategoryCreate, ImageCategoryView, ImageCreate, ImageView
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
+from api.utils.file_upload import upload_to_dropbox, delete_from_dropbox
 from api.v1.models.image_categories import ImageCategory
 from api.v1.models.images import Image
 from sqlalchemy.orm import Session
 from api.db.database import get_db
+from dotenv import load_dotenv
+load_dotenv(".env")
+import os, uuid
 
+BASE_PATH = os.getenv("BASE_FOLDER")
 
 images_route = APIRouter(tags=["Images Management"])
 
@@ -34,27 +39,56 @@ def create_image_category(
     return new_category
 
 @images_route.post("{category_id}/add_image/", response_model=ImageView)
-def add_image_to_category(
-    category_id: int, payload: ImageCreate, db: Session = Depends(get_db)
+async def add_image_to_category(
+    category_id: int, image_name: str = None, file: UploadFile = File(...), db: Session = Depends(get_db)
 ):
+    # Check if the category exists
     category = db.query(ImageCategory).filter_by(id=category_id).first()
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Image category not found.",
         )
+    # Store the category name
+    category_name = category.category_name
     
-    new_image = Image(**payload.dict(), category_id=category_id)
+    # Check the file type
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only images are allowed."
+        )
+    
+    # Auto-rename the image e.g
+    ext = file.filename.split('.')[-1]
+    unique_name = f"{uuid.uuid4().hex}.{ext}"
+    
+    
+    # Upload to Dropbox
+    file_bytes = await file.read()
+    dropbox_path = f"/{BASE_PATH}/{category_name}/{unique_name}"
+    image_url = upload_to_dropbox(file_bytes, dropbox_path)
+    
+    # Save to the DB
+    new_image = Image(
+        image_name= image_name or unique_name,
+        image_url=image_url,
+        category_id=category_id,
+        status="in-use"
+    )
+    
     db.add(new_image)
     db.commit()
     db.refresh(new_image)
     
     return new_image
 
+
 @images_route.get("/{category_id}/images/", response_model=list[ImageView])
 def get_images_by_category(
     category_id: int, db: Session = Depends(get_db)
 ):
+    # Check if the Category exists
     category = db.query(ImageCategory).filter_by(id=category_id).first()
     if not category:
         raise HTTPException(
@@ -62,6 +96,7 @@ def get_images_by_category(
             detail="Image category not found.",
         )
     
+    # Return information on the categories
     images = db.query(Image).filter_by(category_id=category_id).all()
     return images
 
@@ -69,6 +104,7 @@ def get_images_by_category(
 def get_image_by_id(
     image_id: int, db: Session = Depends(get_db)
 ):
+    # Check if the image exists
     image = db.query(Image).filter_by(id=image_id).first()
     if not image:
         raise HTTPException(
@@ -82,13 +118,20 @@ def get_image_by_id(
 def delete_image(
     image_id: int, db: Session = Depends(get_db)
 ):
+    # Check if the image exists
     image = db.query(Image).filter_by(id=image_id).first()
     if not image:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Image not found.",
         )
+        
+    # Fetch the images Category
+    category_name = db.query(ImageCategory).filter_by(id=image.category_id).first()
     
+    # Delete the image from the database
     db.delete(image)
+    # Delete the image from Dropbox
+    dropbox_path = f"/{BASE_PATH}/{category_name}/{image.image_name}"
+    delete_from_dropbox(dropbox_path)
     db.commit()
-    
