@@ -22,10 +22,11 @@ class User(Base):
     local_assembly = Column(String, nullable=True)
     local_assembly_address = Column(String, nullable=True)
     hall_name = Column(String, ForeignKey("halls.hall_name"), nullable=True)
-    floor = Column(Integer, nullable=True)
+    floor = Column(ForeignKey("hall_floors.floor_id"), nullable=True)
     bed_number = Column(Integer, nullable=True)
     extra_beds = Column(JSON, nullable=True)
     active_status = Column(Enum("active", "inactive", name="active_status_enum"), default="inactive", nullable=False)
 
     phone = relationship("PhoneNumber", back_populates="user")
     hall = relationship("Hall", back_populates="residents")
+    floor_relationship = relationship("HallFloors", back_populates="user_floor")

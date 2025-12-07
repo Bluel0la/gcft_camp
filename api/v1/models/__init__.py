@@ -4,3 +4,4 @@ from api.v1.models.phone_number import PhoneNumber
 from api.v1.models.user import User
 from api.v1.models.image_categories import ImageCategory
 from api.v1.models.images import Image
+from api.v1.models.floor import HallFloors

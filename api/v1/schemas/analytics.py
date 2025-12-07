@@ -16,7 +16,14 @@ class HallAnalytics(BaseModel):
     hall_name: str
     no_floors: int
     total_beds: int
-    categories: List[CategoryAnalytics]
+    booked_beds: int
+    free_beds: int
+    signed_in_users: int
+    female_count: int
+    male_count: int
+    male_active_count: int
+    female_active_count: int
+
 
 class UserCount(BaseModel):
     total_users: int
