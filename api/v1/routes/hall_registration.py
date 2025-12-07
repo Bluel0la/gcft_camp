@@ -10,6 +10,8 @@ from api.v1.models.floor import HallFloors
 from api.db.database import get_db
 from api.utils.bed_allocation import beds_required
 from datetime import datetime
+from sqlalchemy import or_
+
 import asyncio
 
 registration_route = APIRouter(tags=["Hall Registration"])
@@ -67,12 +69,18 @@ async def register_user(
     
     # Find all eligible halls based on the user's gender
     eligible_halls = db.query(Hall).filter(Hall.gender == payload.gender).all()
+    new_user = None  # Track if a user was registered
+
     for hall in eligible_halls:
         eligible_floors = db.query(HallFloors).filter(
             HallFloors.hall_id == hall.id,
             HallFloors.status == "not-full",
-            HallFloors.age_range == payload.age_range
-        ).order_by(HallFloors.floor_no).all()
+            HallFloors.age_range == payload.age_range,
+            or_(
+                HallFloors.categories.any(category.Category.category_name == payload.category),
+                HallFloors.categories == []  # eligible if no categories assigned
+                )
+            ).order_by(HallFloors.floor_no).all()
         for floor in eligible_floors:
             if floor.last_assigned_bed is None or floor.last_assigned_bed == 0:
                 floor.last_assigned_bed = 1
@@ -106,7 +114,19 @@ async def register_user(
                 db.commit()
                 db.refresh(new_user)
                 break
-    
+        if new_user:
+            break
+
+    # If no user was registered, all eligible halls are full
+    if not new_user:
+        # Send notification for each eligible hall
+        for hall in eligible_halls:
+            await send_hall_full_email(hall, payload.category)
+        raise HTTPException(
+            status_code=400,
+            detail="All eligible halls are full for this category and age range."
+        )
+
     return UserDisplay(
         id=new_user.id,
         first_name=new_user.first_name,
@@ -117,7 +137,7 @@ async def register_user(
         extra_beds=new_user.extra_beds or [],
         phone_number=phone.phone_number,
         gender=new_user.gender,
-        age_range=new_user.gender,
+        age_range=new_user.age_range,
         marital_status=new_user.marital_status,
         state=new_user.state,
         country=new_user.country,

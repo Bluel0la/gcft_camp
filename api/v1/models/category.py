@@ -8,4 +8,6 @@ class Category(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     category_name = Column(String, nullable=False)
+    
+    floors = relationship("HallFloors", secondary="floor_category_association", back_populates="categories")
 
