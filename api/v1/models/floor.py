@@ -7,7 +7,7 @@ from api.db.database import Base
 floor_category_association = Table(
     "floor_category_association",
     Base.metadata,
-    Column("floor_id", UUID(as_uuid=True), ForeignKey("hall_floors.floor_id")),
+    Column("floor_id", UUID(as_uuid=True), ForeignKey("hall_floors.floor_id"), primary_key=True),
     Column("category_id", Integer, ForeignKey("categories.id"))
 )
 

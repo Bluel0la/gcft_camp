@@ -5,12 +5,12 @@ from api.v1.models import hall as hall_model
 from api.db.database import get_db
 from api.utils.bed_allocation import floor_create_logic
 from api.v1.schemas.floor_management import FloorUpdateSchema, FloorViewSchema
+from sqlalchemy import func
+from api.v1.models.category import Category
+import uuid
+from api.v1.models.floor import HallFloors
 
 hall_route = APIRouter(prefix="/hall", tags=["Hall Management"])
-
-
-import uuid
-from api.v1.models.floor import HallFloors  # Make sure this import is present
 
 
 @hall_route.post("/", response_model=hall_registration.HallView)
@@ -96,16 +96,34 @@ def view_floors_hall(
     hall_name: str, db: Session = Depends(get_db)
 ):
     # Check if the hall name exists
-    
-    hall = db.query(hall_model.Hall).filter_by(hall_name=hall_name).first()
+    hall = db.query(hall_model.Hall).filter(
+        func.lower(hall_model.Hall.hall_name) == hall_name.lower()
+        ).first()
     if not hall:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="This hall does not exist."
         )
-        
-    floors = db.query(HallFloors).filter_by(hall_id=hall.id).all()
-    return floors
+
+    floors = (
+        db.query(HallFloors)
+        .filter_by(hall_id=hall.id)
+        .order_by(HallFloors.floor_no)
+        .all()
+    )
+    result = []
+    for floor in floors:
+        result.append(
+            FloorViewSchema(
+                floor_id=floor.floor_id,
+                floor_no=floor.floor_no,
+                hall_id=floor.hall_id,
+                categories=[cat.id for cat in floor.categories] if floor.categories else [],
+                no_beds=floor.no_beds,
+                status=floor.status,
+            )
+        )
+    return result
 
 # edit floor information
 @hall_route.put("/{hall_name}/{floor_no}/edit", response_model=FloorViewSchema)
@@ -114,7 +132,11 @@ def edit_floor_information(
 ):
 
     # Check if the hall name exists
-    hall = db.query(hall_model.Hall).filter_by(hall_name=hall_name).first()
+    hall = (
+        db.query(hall_model.Hall)
+        .filter(func.lower(hall_model.Hall.hall_name) == hall_name.lower())
+        .first()
+    )
     if not hall:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="This hall does not exist."
@@ -127,11 +149,103 @@ def edit_floor_information(
             status_code=status.HTTP_404_NOT_FOUND, 
             detail="This floor does not exist in the specified hall."
         )
-        
+
     # Make the Updates to the floor
     for field, value in payload.dict(exclude_unset=True).items():
-        setattr(floor, field, value)
-    
+        if field == "categories":
+            # Expecting a list of category IDs
+            if isinstance(value, list):
+                categories = db.query(Category).filter(Category.id.in_(value)).all()
+                setattr(floor, field, categories)
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Categories must be a list of category IDs."
+                )
+        else:
+            setattr(floor, field, value)
+
     db.commit()
     db.refresh(floor)
-    return floor
+    return FloorViewSchema(
+        floor_id=floor.floor_id,
+        floor_no=floor.floor_no,
+        hall_id=floor.hall_id,
+        categories=[cat.id for cat in floor.categories] if floor.categories else [],
+        no_beds=floor.no_beds,
+        status=floor.status,
+    )
+
+
+@hall_route.post(
+    "/{hall_name}/{floor_no}/categories/add", response_model=FloorViewSchema
+)
+def add_categories_to_floor(
+    hall_name: str,
+    floor_no: int,
+    category_ids: list[int],
+    db: Session = Depends(get_db),
+):
+    hall = (
+        db.query(hall_model.Hall)
+        .filter(func.lower(hall_model.Hall.hall_name) == hall_name.lower())
+        .first()
+    )
+    if not hall:
+        raise HTTPException(status_code=404, detail="Hall not found.")
+
+    floor = db.query(HallFloors).filter_by(hall_id=hall.id, floor_no=floor_no).first()
+    if not floor:
+        raise HTTPException(status_code=404, detail="Floor not found.")
+
+    categories = db.query(Category).filter(Category.id.in_(category_ids)).all()
+    for cat in categories:
+        if cat not in floor.categories:
+            floor.categories.append(cat)
+    db.commit()
+    db.refresh(floor)
+    return FloorViewSchema(
+        floor_id=floor.floor_id,
+        floor_no=floor.floor_no,
+        hall_id=floor.hall_id,
+        categories=[cat.id for cat in floor.categories] if floor.categories else [],
+        no_beds=floor.no_beds,
+        status=floor.status,
+    )
+
+
+@hall_route.post(
+    "/{hall_name}/{floor_no}/categories/remove", response_model=FloorViewSchema
+)
+def remove_categories_from_floor(
+    hall_name: str,
+    floor_no: int,
+    category_ids: list[int],
+    db: Session = Depends(get_db),
+):
+    hall = (
+        db.query(hall_model.Hall)
+        .filter(func.lower(hall_model.Hall.hall_name) == hall_name.lower())
+        .first()
+    )
+    if not hall:
+        raise HTTPException(status_code=404, detail="Hall not found.")
+
+    floor = db.query(HallFloors).filter_by(hall_id=hall.id, floor_no=floor_no).first()
+    if not floor:
+        raise HTTPException(status_code=404, detail="Floor not found.")
+
+    categories = db.query(Category).filter(Category.id.in_(category_ids)).all()
+    for cat in categories:
+        if cat in floor.categories:
+            floor.categories.remove(cat)
+    db.commit()
+    db.refresh(floor)
+    return FloorViewSchema(
+        floor_id=floor.floor_id,
+        floor_no=floor.floor_no,
+        hall_id=floor.hall_id,
+        categories=[cat.id for cat in floor.categories] if floor.categories else [],
+        no_beds=floor.no_beds,
+        status=floor.status,
+    )
