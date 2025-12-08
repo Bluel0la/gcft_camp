@@ -249,3 +249,81 @@ def remove_categories_from_floor(
         no_beds=floor.no_beds,
         status=floor.status,
     )
+
+
+@hall_route.post(
+    "/{hall_name}/{floor_no}/age_ranges/add", response_model=FloorViewSchema
+)
+def add_age_ranges_to_floor(
+    hall_name: str,
+    floor_no: int,
+    age_ranges: list[str],
+    db: Session = Depends(get_db),
+):
+    hall = (
+        db.query(hall_model.Hall)
+        .filter(func.lower(hall_model.Hall.hall_name) == hall_name.lower())
+        .first()
+    )
+    if not hall:
+        raise HTTPException(status_code=404, detail="Hall not found.")
+
+    floor = db.query(HallFloors).filter_by(hall_id=hall.id, floor_no=floor_no).first()
+    if not floor:
+        raise HTTPException(status_code=404, detail="Floor not found.")
+
+    # Add new age ranges, avoiding duplicates
+    current_ranges = set(floor.age_ranges or [])
+    for ar in age_ranges:
+        current_ranges.add(ar)
+    floor.age_ranges = list(current_ranges)
+    db.commit()
+    db.refresh(floor)
+    return FloorViewSchema(
+        floor_id=floor.floor_id,
+        floor_no=floor.floor_no,
+        hall_id=floor.hall_id,
+        age_ranges=floor.age_ranges,
+        categories=[cat.id for cat in floor.categories] if floor.categories else [],
+        no_beds=floor.no_beds,
+        status=floor.status,
+    )
+
+
+@hall_route.post(
+    "/{hall_name}/{floor_no}/age_ranges/remove", response_model=FloorViewSchema
+)
+def remove_age_ranges_from_floor(
+    hall_name: str,
+    floor_no: int,
+    age_ranges: list[str],
+    db: Session = Depends(get_db),
+):
+    hall = (
+        db.query(hall_model.Hall)
+        .filter(func.lower(hall_model.Hall.hall_name) == hall_name.lower())
+        .first()
+    )
+    if not hall:
+        raise HTTPException(status_code=404, detail="Hall not found.")
+
+    floor = db.query(HallFloors).filter_by(hall_id=hall.id, floor_no=floor_no).first()
+    if not floor:
+        raise HTTPException(status_code=404, detail="Floor not found.")
+
+    # Remove specified age ranges
+    current_ranges = set(floor.age_ranges or [])
+    for ar in age_ranges:
+        current_ranges.discard(ar)
+    floor.age_ranges = list(current_ranges)
+    db.commit()
+    db.refresh(floor)
+    return FloorViewSchema(
+        floor_id=floor.floor_id,
+        floor_no=floor.floor_no,
+        hall_id=floor.hall_id,
+        age_ranges=floor.age_ranges,
+        categories=[cat.id for cat in floor.categories] if floor.categories else [],
+        no_beds=floor.no_beds,
+        status=floor.status,
+    )

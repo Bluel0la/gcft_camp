@@ -66,21 +66,25 @@ async def register_user(
         raise HTTPException(
             status_code=409, detail="User already registered with this phone number."
         )
-    
+
     # Find all eligible halls based on the user's gender
     eligible_halls = db.query(Hall).filter(Hall.gender == payload.gender).all()
+    
+    # Print eligble halls
+    print("Eligible halls:", eligible_halls)
     new_user = None  # Track if a user was registered
 
     for hall in eligible_halls:
         eligible_floors = db.query(HallFloors).filter(
             HallFloors.hall_id == hall.id,
             HallFloors.status == "not-full",
-            HallFloors.age_range == payload.age_range,
+            HallFloors.age_ranges.contains([payload.age_range]),
             or_(
                 HallFloors.categories.any(category.Category.category_name == payload.category),
-                HallFloors.categories == []  # eligible if no categories assigned
+                ~HallFloors.categories.any()  # Use ~ for "no categories"
                 )
             ).order_by(HallFloors.floor_no).all()
+        print("Eligible floors:", eligible_floors)
         for floor in eligible_floors:
             if floor.last_assigned_bed is None or floor.last_assigned_bed == 0:
                 floor.last_assigned_bed = 1
@@ -98,7 +102,7 @@ async def register_user(
                     first_name=payload.first_name,
                     category=payload.category,
                     hall_name=hall.hall_name,
-                    floor=floor.floor_no,
+                    floor=floor.floor_id,
                     bed_number=assigned_bed,
                     extra_beds=beds[1:] if len(beds) > 1 else [],
                     phone_number_id=phone.id,

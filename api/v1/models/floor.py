@@ -1,7 +1,8 @@
-from sqlalchemy import Table, Column, Integer, ForeignKey, Enum
+from sqlalchemy import Table, Column, Integer, ForeignKey, Enum, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from api.db.database import Base
+from sqlalchemy.dialects.postgresql import ARRAY
 
 # Association table for many-to-many relationship
 floor_category_association = Table(
@@ -13,12 +14,12 @@ floor_category_association = Table(
 
 class HallFloors(Base):
     __tablename__ = "hall_floors"
-    
+
     floor_id = Column(UUID(as_uuid=True), primary_key=True, index=True)
     hall_id = Column(ForeignKey("halls.id"), nullable=False)
     floor_no = Column(Integer, nullable=False)
-    age_range = Column(Enum("10-17", "18-25", "26-35", "36-45", "45-55", "56-65", "66-70", "71+", name="age_range_enum"), nullable=True)
-    
+    age_ranges = Column(ARRAY(String), nullable=True)
+
     # Many-to-many relationship
     categories = relationship("Category", secondary=floor_category_association, back_populates="floors")
 

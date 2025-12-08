@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from enum import Enum
 from typing import Optional
 from datetime import date
-
+from uuid import UUID
 
 class AgeRangeEnum(str, Enum):
     age_10_17 = "10-17"
@@ -30,7 +30,7 @@ class UserBase(BaseModel):
     local_assembly: Optional[str] = None
     local_assembly_address: Optional[str] = None
     hall_name: Optional[str] = None
-    floor: Optional[int] = None
+    floor: Optional[UUID] = None
     bed_number: Optional[int] = None
     extra_beds: Optional[list[int]] = None  # Add this line
 

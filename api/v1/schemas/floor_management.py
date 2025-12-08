@@ -9,7 +9,7 @@ class FloorCreateSchema(BaseModel):
 
 class FloorUpdateSchema(BaseModel):
     floor_no: Optional[int] = Field(None, description="The number of the floor")
-    age_range: Optional[str] = Field(None, description="The age range of people staying on the floor the floor")
+    age_ranges: Optional[list[str]] = None  # <-- updated field
     categories: Optional[list[int]] = Field(None, description="List of category IDs for the floor")
     no_beds: Optional[int] = Field(None, description="The number of beds on the floor")
 

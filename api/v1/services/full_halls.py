@@ -30,11 +30,11 @@ async def send_hall_full_email(hall_record, category_name):
                     </tr>
                     <tr>
                         <td style="padding: 8px; font-weight: bold;">Total Beds:</td>
-                        <td style="padding: 8px;">{hall_record.no_beds}</td>
+                        <td style="padding: 8px;"></td>
                     </tr>
                     <tr style="background-color: #f9f9f9;">
                         <td style="padding: 8px; font-weight: bold;">Allocated Beds:</td>
-                        <td style="padding: 8px;">{hall_record.no_allocated_beds}</td>
+                        <td style="padding: 8px;"></td>
                     </tr>
                 </table>
                 <p style="margin-top: 20px; font-size: 14px;">Please take the necessary action immediately.</p>
