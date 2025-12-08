@@ -3,7 +3,7 @@ from typing import Optional
 
 class FloorCreateSchema(BaseModel):
     floor_no: int = Field(..., description="The number of the floor")
-    hall_id: str = Field(..., description="The ID of the hall the floor belongs to")
+    hall_id: int = Field(..., description="The ID of the hall the floor belongs to")
     no_beds: int = Field(0, description="The number of beds on the floor")
 
 class FloorUpdateSchema(BaseModel):
