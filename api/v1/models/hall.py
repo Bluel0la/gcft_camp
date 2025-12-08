@@ -8,7 +8,7 @@ class Hall(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     hall_name = Column(String, unique=True, nullable=False)
-    no_beds = Column(Integer, nullable=False)
+    no_beds = Column(Integer, nullable=True)
     no_floors = Column(Integer, nullable=False)
     gender = Column(String(), nullable=False)
 
