@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
+from uuid import UUID
 
 class FloorCreateSchema(BaseModel):
     floor_no: int = Field(..., description="The number of the floor")
@@ -13,9 +14,9 @@ class FloorUpdateSchema(BaseModel):
     no_beds: Optional[int] = Field(None, description="The number of beds on the floor")
 
 class FloorViewSchema(BaseModel):
-    floor_id: str = Field(..., description="The unique identifier of the floor")
+    floor_id: UUID = Field(..., description="The unique identifier of the floor")
     floor_no: int = Field(..., description="The number of the floor")
-    hall_id: str = Field(..., description="The ID of the hall the floor belongs to")
+    hall_id: int = Field(..., description="The ID of the hall the floor belongs to")
     no_beds: int = Field(..., description="The number of beds on the floor")
     status: str = Field(..., description="The status of the floor (full/not-full)")
     
