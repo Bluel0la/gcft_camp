@@ -69,7 +69,7 @@ async def register_user(
 
     # Find all eligible halls based on the user's gender
     eligible_halls = db.query(Hall).filter(Hall.gender == payload.gender).all()
-    
+
     # Print eligble halls
     print("Eligible halls:", eligible_halls)
     new_user = None  # Track if a user was registered
@@ -113,6 +113,10 @@ async def register_user(
                     country=payload.country,
                     arrival_date=payload.arrival_date,
                     no_children=payload.no_children,
+                    local_assembly=payload.local_assembly,
+                    local_assembly_address=payload.local_assembly_address,
+                    names_children=payload.names_children,
+                    medical_issues=payload.medical_issues
                 )
                 db.add(new_user)
                 db.commit()
@@ -130,13 +134,16 @@ async def register_user(
             status_code=400,
             detail="All eligible halls are full for this category and age range."
         )
+    floor_record = db.query(HallFloors).filter(HallFloors.floor_id == new_user.floor).first()
+    
 
     return UserDisplay(
+        
         id=new_user.id,
         first_name=new_user.first_name,
         category=new_user.category,
         hall_name=new_user.hall_name,
-        floor=new_user.floor,
+        floor=f"Floor {floor_record.floor_no}",
         bed_number=new_user.bed_number,
         extra_beds=new_user.extra_beds or [],
         phone_number=phone.phone_number,
@@ -145,7 +152,12 @@ async def register_user(
         marital_status=new_user.marital_status,
         state=new_user.state,
         country=new_user.country,
-        arrival_date=new_user.arrival_date
+        arrival_date=new_user.arrival_date,
+        no_children=new_user.no_children,
+        local_assembly=new_user.local_assembly,
+        local_assembly_address=new_user.local_assembly_address,
+        names_children=new_user.names_children,
+        medical_issues=new_user.medical_issues
     )
 
 

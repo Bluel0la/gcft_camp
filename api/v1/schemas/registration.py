@@ -30,7 +30,7 @@ class UserBase(BaseModel):
     local_assembly: Optional[str] = None
     local_assembly_address: Optional[str] = None
     hall_name: Optional[str] = None
-    floor: Optional[UUID] = None
+    floor: Optional[str] = None
     bed_number: Optional[int] = None
     extra_beds: Optional[list[int]] = None  # Add this line
 
@@ -48,23 +48,7 @@ class UserView(UserBase):
 
 
 class UserDisplay(UserView):
-    display_floor: Optional[str] = Field(default=None)
-    model_config = ConfigDict(from_attributes=True)
-
-    @classmethod
-    def from_orm_with_display(cls, obj, phone_number: Optional[str] = None):
-        base = cls.from_orm(obj)
-        floor_map = {
-            0: "Ground Floor",
-            1: "First Floor",
-            2: "Second Floor",
-            3: "Third Floor",
-            4: "Fourth Floor",
-            5: "Fifth Floor",
-        }
-        base.display_floor = floor_map.get(base.floor, f"Floor {base.floor}")
-        base.phone_number = phone_number
-        return base
+    pass
 
 
 class UserSummary(BaseModel):
