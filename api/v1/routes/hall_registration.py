@@ -11,7 +11,7 @@ from api.db.database import get_db
 from api.utils.bed_allocation import beds_required, gender_classifier
 from datetime import datetime
 from sqlalchemy import or_
-
+from api.v1.models.phone_number import PhoneNumber
 import asyncio
 
 registration_route = APIRouter(tags=["Hall Registration"])
@@ -66,10 +66,13 @@ async def register_user(
         )
     # Get their Gender from the classifier
     gender = gender_classifier(payload.category)
+    print(gender)
 
-    # Find all eligible halls based on the user's gender
-    eligible_halls = db.query(Hall).filter(Hall.gender == gender).all()
-
+    # Find all eligible halls based on the user's gender and any hall named "Jerusalem Hall"
+    eligible_halls = db.query(Hall).filter(
+        (Hall.gender == gender) | (Hall.hall_name == "Jerusalem Hall")
+    ).order_by(Hall.hall_name).all()
+    
     # Print eligble halls
     print("Eligible halls:", eligible_halls)
     new_user = None  # Track if a user was registered
@@ -78,12 +81,16 @@ async def register_user(
         eligible_floors = db.query(HallFloors).filter(
             HallFloors.hall_id == hall.id,
             HallFloors.status == "not-full",
-            HallFloors.age_ranges.contains([payload.age_range]),
             or_(
-                HallFloors.categories.any(category.Category.category_name == payload.category),
-                ~HallFloors.categories.any()  # Use ~ for "no categories"
-                )
-            ).order_by(HallFloors.floor_no).all()
+            HallFloors.age_ranges.contains([payload.age_range]),
+            HallFloors.age_ranges == None,
+            HallFloors.age_ranges == [],
+            ),
+            or_(
+            HallFloors.categories.any(category.Category.category_name == payload.category),
+            ~HallFloors.categories.any()
+            )
+        ).order_by(HallFloors.floor_no).all()
         for floor in eligible_floors:
             bunk_size = 2  # or fetch from floor config if variable
             if floor.last_assigned_bed is None or floor.last_assigned_bed == 0:
@@ -212,7 +219,6 @@ def get_all_users(db: Session = Depends(get_db)):
         for record in db.query(phone_number.PhoneNumber).all()
     }
 
-
     return [
         UserSummary(
             id=user.id,
@@ -230,16 +236,52 @@ def get_all_users(db: Session = Depends(get_db)):
 
 # Change a users active status from inactive to active
 @registration_route.put("/activate-user/{phone_number}", response_model=UserView)
-def activate_user(phone_number: str, db: Session = Depends(get_db)):
-    user_record = db.query(user.User).filter(user.User.phone == phone_number).first()
+def activate_user(number: str, db: Session = Depends(get_db)):
+    # Get the PhoneNumber object
+    phone = (
+        db.query(PhoneNumber).filter(PhoneNumber.phone_number == number).first()
+    )
+    if not phone:
+        raise HTTPException(status_code=404, detail="Phone number not found.")
+
+    # Get the user by phone_number_id
+    user_record = (
+        db.query(user.User).filter(user.User.phone_number_id == phone.id).first()
+    )
     if not user_record:
         raise HTTPException(status_code=404, detail="User not found.")
 
+    # Check the user's current status
     if user_record.active_status == "active":
-        raise HTTPException(status_code=400, detail="User is already active.")
-
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User is already Enrolled"
+        )
     user_record.active_status = "active"
     db.commit()
     db.refresh(user_record)
-
-    return user_record
+    floor_record = (
+        db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
+    )
+    floor_no = floor_record.floor_no if floor_record else None
+    return UserView(
+        id=user_record.id,
+        first_name=user_record.first_name,
+        category=user_record.category,
+        hall_name=user_record.hall_name,
+        floor=f"Floor {floor_no}" if floor_no else None,
+        bed_number=user_record.bed_number,
+        extra_beds=user_record.extra_beds or [],
+        phone_number=phone.phone_number,
+        gender=user_record.gender,
+        age_range=user_record.age_range,
+        marital_status=user_record.marital_status,
+        state=user_record.state,
+        country=user_record.country,
+        arrival_date=user_record.arrival_date,
+        no_children=user_record.no_children,
+        local_assembly=user_record.local_assembly,
+        local_assembly_address=user_record.local_assembly_address,
+        names_children=user_record.names_children,
+        medical_issues=user_record.medical_issues,
+        active_status=user_record.active_status,
+    )
