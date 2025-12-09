@@ -1,4 +1,4 @@
-from api.v1.schemas.Images import ImageCategoryCreate, ImageCategoryView, ImageCreate, ImageView
+from api.v1.schemas.Images import ImageCategoryCreate, ImageCategoryView, ImageCreate, ImageView, List
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
 from api.utils.file_upload import upload_to_dropbox, delete_from_dropbox, dbx
 from api.v1.models.image_categories import ImageCategory
@@ -11,7 +11,7 @@ import os, uuid
 
 images_route = APIRouter(tags=["Images Management"])
 
-@images_route.get("/categories/", response_model=ImageCategoryView)
+@images_route.get("/categories/", response_model=List[ImageCategoryView])
 def view_image_categories(db: Session = Depends(get_db)):
     categories = db.query(ImageCategory).all()
     return categories
@@ -66,7 +66,7 @@ async def add_image_to_category(
     # Ensure category folder exists in Dropbox
     from dropbox.exceptions import ApiError
 
-    folder_path = f"{category_name}"
+    folder_path = f"/{category_name}"
     try:
         dbx.files_create_folder_v2(folder_path)
     except ApiError as e:
@@ -144,6 +144,6 @@ def delete_image(
     # Delete the image from the database
     db.delete(image)
     # Delete the image from Dropbox
-    dropbox_path = f"{category_name}/{image.image_name}"
+    dropbox_path = f"/{category_name}/{image.image_name}"
     delete_from_dropbox(dropbox_path)
     db.commit()
