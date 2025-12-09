@@ -18,7 +18,6 @@ class AgeRangeEnum(str, Enum):
 class UserBase(BaseModel):
     category: str
     first_name: str
-    gender: str
     age_range: AgeRangeEnum
     marital_status: str
     no_children: Optional[int] = None
@@ -31,7 +30,7 @@ class UserBase(BaseModel):
     local_assembly_address: Optional[str] = None
     hall_name: Optional[str] = None
     floor: Optional[str] = None
-    bed_number: Optional[int] = None
+    bed_number: Optional[str] = None
     extra_beds: Optional[list[int]] = None  # Add this line
 
 
@@ -41,6 +40,7 @@ class UserRegistration(UserBase):
 
 class UserView(UserBase):
     id: int
+    gender: str
     phone_number: Optional[str] = Field(default=None)
 
     class Config:
@@ -56,9 +56,8 @@ class UserSummary(BaseModel):
     first_name: str
     category: str
     hall_name: str
-    floor: int
-    display_floor: Optional[str] = None
-    bed_number: int
+    floor: str
+    bed_number: str
     extra_beds: Optional[list[int]] = None
     phone_number: str
 

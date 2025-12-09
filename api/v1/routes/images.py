@@ -9,8 +9,6 @@ from dotenv import load_dotenv
 load_dotenv(".env")
 import os, uuid
 
-BASE_PATH = os.getenv("BASE_FOLDER")
-
 images_route = APIRouter(tags=["Images Management"])
 
 @images_route.get("/categories/", response_model=ImageCategoryView)
@@ -68,7 +66,7 @@ async def add_image_to_category(
     # Ensure category folder exists in Dropbox
     from dropbox.exceptions import ApiError
 
-    folder_path = f"{BASE_PATH}/{category_name}" if BASE_PATH else f"/{category_name}"
+    folder_path = f"{category_name}"
     try:
         dbx.files_create_folder_v2(folder_path)
     except ApiError as e:
@@ -146,6 +144,6 @@ def delete_image(
     # Delete the image from the database
     db.delete(image)
     # Delete the image from Dropbox
-    dropbox_path = f"{BASE_PATH}/{category_name}/{image.image_name}"
+    dropbox_path = f"{category_name}/{image.image_name}"
     delete_from_dropbox(dropbox_path)
     db.commit()

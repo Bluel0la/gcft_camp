@@ -8,7 +8,7 @@ from api.v1.models import phone_number, user, category, hall
 from api.v1.models.hall import Hall
 from api.v1.models.floor import HallFloors
 from api.db.database import get_db
-from api.utils.bed_allocation import beds_required
+from api.utils.bed_allocation import beds_required, gender_classifier
 from datetime import datetime
 from sqlalchemy import or_
 
@@ -43,9 +43,7 @@ def register_phone_number(
     return phone
 
 
-@registration_route.post(
-    "/register-user/{number}", response_model=UserDisplay
-)
+@registration_route.post("/register-user/{number}", response_model=UserDisplay)
 async def register_user(
     number: str, payload: UserRegistration, db: Session = Depends(get_db)
 ):
@@ -66,9 +64,11 @@ async def register_user(
         raise HTTPException(
             status_code=409, detail="User already registered with this phone number."
         )
+    # Get their Gender from the classifier
+    gender = gender_classifier(payload.category)
 
     # Find all eligible halls based on the user's gender
-    eligible_halls = db.query(Hall).filter(Hall.gender == payload.gender).all()
+    eligible_halls = db.query(Hall).filter(Hall.gender == gender).all()
 
     # Print eligble halls
     print("Eligible halls:", eligible_halls)
@@ -84,17 +84,24 @@ async def register_user(
                 ~HallFloors.categories.any()  # Use ~ for "no categories"
                 )
             ).order_by(HallFloors.floor_no).all()
-        print("Eligible floors:", eligible_floors)
         for floor in eligible_floors:
+            bunk_size = 2  # or fetch from floor config if variable
             if floor.last_assigned_bed is None or floor.last_assigned_bed == 0:
                 floor.last_assigned_bed = 1
-            if floor.last_assigned_bed <= floor.no_beds:
-                assigned_bed = floor.last_assigned_bed
-                # Calculate required beds
-                beds = beds_required(payload.no_children, assigned_bed)
-                # Update last_assigned_bed accordingly
-                floor.last_assigned_bed += len(beds)
-                if floor.last_assigned_bed > floor.no_beds:
+            if floor.counter_value is None:
+                floor.counter_value = 0
+
+            # Check if there are beds left
+            total_beds = floor.no_beds * bunk_size
+            assigned_count = ((floor.last_assigned_bed - 1) * bunk_size) + floor.counter_value
+            if assigned_count < total_beds:
+                bed_label, next_bed, next_counter = beds_required(
+                    payload.no_children, floor.last_assigned_bed, floor.counter_value, bunk_size
+                )
+                # Assign bed and update counters
+                floor.last_assigned_bed = next_bed
+                floor.counter_value = next_counter
+                if ((floor.last_assigned_bed - 1) * bunk_size + floor.counter_value) >= total_beds:
                     floor.status = "full"
                 db.commit()
 
@@ -103,10 +110,10 @@ async def register_user(
                     category=payload.category,
                     hall_name=hall.hall_name,
                     floor=floor.floor_id,
-                    bed_number=assigned_bed,
-                    extra_beds=beds[1:] if len(beds) > 1 else [],
+                    bed_number=bed_label,
+                    extra_beds=[],
                     phone_number_id=phone.id,
-                    gender=payload.gender,
+                    gender=gender,
                     age_range=payload.age_range,
                     marital_status=payload.marital_status,
                     state=payload.state,
@@ -178,6 +185,8 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=404, detail="No user registered with this number."
         )
+        
+    floor = db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
 
     
 
@@ -186,7 +195,7 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         "first_name": user_record.first_name,
         "category": user_record.category,
         "hall_name": user_record.hall_name,
-        "floor": user_record.floor,
+        "floor": f"Floor {floor.floor_no}",
         "display_floor": f"Floor {user_record.floor}",
         "bed_number": user_record.bed_number,
         "extra_beds": user_record.extra_beds or [],
@@ -210,8 +219,7 @@ def get_all_users(db: Session = Depends(get_db)):
             first_name=user.first_name,
             category=user.category,
             hall_name=user.hall_name,
-            floor=user.floor,
-            display_floor=f"Floor {user.floor}",
+            floor=f"Floor {user.floor}",
             bed_number=user.bed_number,
             extra_beds=user.extra_beds or [],
             phone_number=phone_map.get(user.phone_number_id, "Unknown"),

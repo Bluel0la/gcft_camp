@@ -23,7 +23,7 @@ class User(Base):
     local_assembly_address = Column(String, nullable=True)
     hall_name = Column(String, ForeignKey("halls.hall_name"), nullable=True)
     floor = Column(ForeignKey("hall_floors.floor_id"), nullable=True)
-    bed_number = Column(Integer, nullable=True)
+    bed_number = Column(String, nullable=True)
     extra_beds = Column(JSON, nullable=True)
     active_status = Column(Enum("active", "inactive", name="active_status_enum"), default="inactive", nullable=False)
 

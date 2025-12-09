@@ -26,6 +26,7 @@ class HallFloors(Base):
     no_beds = Column(Integer, nullable=True, default=0)
     last_assigned_bed = Column(Integer, nullable=True, default=0)
     status = Column(Enum("full", "not-full", name="floor_status"), nullable=False, default="not-full")
+    counter_value = Column(Integer, nullable=True, default=0)
 
     hall_relationship = relationship("Hall", back_populates="floors")
     user_floor = relationship("User", back_populates="floor_relationship")
