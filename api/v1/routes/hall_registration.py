@@ -12,7 +12,7 @@ from api.utils.bed_allocation import beds_required, gender_classifier
 from datetime import datetime
 from sqlalchemy import or_
 from api.v1.models.phone_number import PhoneNumber
-import asyncio
+from api.utils.message import send_sms
 
 registration_route = APIRouter(tags=["Hall Registration"])
 
@@ -72,7 +72,7 @@ async def register_user(
     eligible_halls = db.query(Hall).filter(
         (Hall.gender == gender) | (Hall.hall_name == "Jerusalem Hall")
     ).order_by(Hall.hall_name).all()
-    
+
     # Print eligble halls
     print("Eligible halls:", eligible_halls)
     new_user = None  # Track if a user was registered
@@ -149,7 +149,7 @@ async def register_user(
             detail="All eligible halls are full for this category and age range."
         )
     floor_record = db.query(HallFloors).filter(HallFloors.floor_id == new_user.floor).first()
-    
+    send_sms(phone_number=number, name=new_user.first_name, arrival_date=new_user.arrival_date, hall=new_user.hall_name, floor=floor_record.floor_no, bed_no=new_user.bed_number, country=new_user.country)
 
     return UserDisplay(
         
