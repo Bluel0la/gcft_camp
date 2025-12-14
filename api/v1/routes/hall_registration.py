@@ -288,3 +288,28 @@ def activate_user(number: str, db: Session = Depends(get_db)):
         medical_issues=user_record.medical_issues,
         active_status=user_record.active_status,
     )
+
+# return all active users
+@registration_route.get("/active-users", response_model=list[UserSummary])
+def get_active_users(db: Session = Depends(get_db)):
+    users = db.query(user.User).filter(user.User.active_status == "active").all()
+
+    phone_map = {
+        record.id: record.phone_number
+        for record in db.query(phone_number.PhoneNumber).all()
+    }
+
+    return [
+        UserSummary(
+            id=user.id,
+            first_name=user.first_name,
+            category=user.category,
+            hall_name=user.hall_name,
+            floor=f"Floor {user.floor}",
+            bed_number=user.bed_number,
+            extra_beds=user.extra_beds or [],
+            phone_number=phone_map.get(user.phone_number_id, "Unknown"),
+            status=user.active_status
+        )
+        for user in users
+    ]
