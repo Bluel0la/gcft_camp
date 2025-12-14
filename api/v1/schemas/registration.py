@@ -58,7 +58,7 @@ class UserSummary(BaseModel):
     hall_name: str
     floor: str
     bed_number: str
-    extra_beds: Optional[list[int]] = None
+    extra_beds: Optional[list[str]] = None
     phone_number: str
     status: str
 
