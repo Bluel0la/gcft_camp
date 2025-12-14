@@ -12,7 +12,7 @@ from api.utils.bed_allocation import beds_required, gender_classifier
 from datetime import datetime
 from sqlalchemy import or_
 from api.v1.models.phone_number import PhoneNumber
-from api.utils.message import send_sms
+#from api.utils.message import send_sms
 
 registration_route = APIRouter(tags=["Hall Registration"])
 
