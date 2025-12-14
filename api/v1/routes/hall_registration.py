@@ -231,6 +231,7 @@ def get_all_users(db: Session = Depends(get_db)):
             bed_number=user.bed_number,
             extra_beds=user.extra_beds or [],
             phone_number=phone_map.get(user.phone_number_id, "Unknown"),
+            status=user.active_status
         )
         for user in users
     ]
