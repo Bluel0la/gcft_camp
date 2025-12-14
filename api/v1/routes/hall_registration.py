@@ -149,7 +149,7 @@ async def register_user(
             detail="All eligible halls are full for this category and age range."
         )
     floor_record = db.query(HallFloors).filter(HallFloors.floor_id == new_user.floor).first()
-    send_sms(phone_number=number, name=new_user.first_name, arrival_date=new_user.arrival_date, hall=new_user.hall_name, floor=floor_record.floor_no, bed_no=new_user.bed_number, country=new_user.country)
+    #send_sms(phone_number=number, name=new_user.first_name, arrival_date=new_user.arrival_date, hall=new_user.hall_name, floor=floor_record.floor_no, bed_no=new_user.bed_number, country=new_user.country)
 
     return UserDisplay(
         
@@ -171,7 +171,8 @@ async def register_user(
         local_assembly=new_user.local_assembly,
         local_assembly_address=new_user.local_assembly_address,
         names_children=new_user.names_children,
-        medical_issues=new_user.medical_issues
+        medical_issues=new_user.medical_issues,
+        status=new_user.active_status,
     )
 
 
@@ -207,7 +208,8 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         "bed_number": user_record.bed_number,
         "extra_beds": user_record.extra_beds or [],
         "phone_number": phone.phone_number,
-    }
+        "status": user_record.active_status,
+        }
 
 
 @registration_route.get("/users", response_model=list[UserSummary])
