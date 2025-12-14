@@ -60,6 +60,7 @@ class UserSummary(BaseModel):
     bed_number: str
     extra_beds: Optional[list[int]] = None
     phone_number: str
+    status: str
 
 
     model_config = ConfigDict(from_attributes=True)

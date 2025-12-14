@@ -193,10 +193,8 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=404, detail="No user registered with this number."
         )
-        
-    floor = db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
 
-    
+    floor = db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
 
     return {
         "id": user_record.id,
@@ -227,11 +225,15 @@ def get_all_users(db: Session = Depends(get_db)):
             first_name=user.first_name,
             category=user.category,
             hall_name=user.hall_name,
-            floor=f"Floor {user.floor}",
+            floor=(
+                f"Floor {db.query(HallFloors).filter(HallFloors.floor_id == user.floor).first().floor_no}"
+                if user.floor
+                else None
+            ),
             bed_number=user.bed_number,
             extra_beds=user.extra_beds or [],
             phone_number=phone_map.get(user.phone_number_id, "Unknown"),
-            status=user.active_status
+            status=user.active_status,
         )
         for user in users
     ]
