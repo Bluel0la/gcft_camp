@@ -151,7 +151,7 @@ async def register_user(
     floor_record = db.query(HallFloors).filter(HallFloors.floor_id == new_user.floor).first()
 
     await send_sms_termii(phone_number=number, name=new_user.first_name, arrival_date=new_user.arrival_date, hall=new_user.hall_name, floor=floor_record.floor_no, bed_no=new_user.bed_number, country=new_user.country)
-    await send_sms_termii_whatsapp(phone_number=number, name=new_user.first_name, arrival_date=new_user.arrival_date, hall=new_user.hall_name, floor=floor_record.floor_no, bed_no=new_user.bed_number, country=new_user.country)
+    #await send_sms_termii_whatsapp(phone_number=number, name=new_user.first_name, arrival_date=new_user.arrival_date, hall=new_user.hall_name, floor=floor_record.floor_no, bed_no=new_user.bed_number, country=new_user.country)
 
     return UserDisplay(
         

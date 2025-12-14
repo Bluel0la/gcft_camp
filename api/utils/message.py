@@ -24,11 +24,11 @@ async def send_sms_termii_whatsapp(phone_number: str, name: str, arrival_date: s
     country = country.lower()
     if phone_number.startswith("0"):
         if country == "nigeria":
-            phone_number = "+234" + phone_number[1:]
+            phone_number = "234" + phone_number[1:]
         elif country == "ghana":
-            phone_number = "+233" + phone_number[1:]
+            phone_number = "233" + phone_number[1:]
         elif country == "kenya":
-            phone_number = "+254" + phone_number[1:]
+            phone_number = "254" + phone_number[1:]
 
     sms_content = (
         f"Good day {name}! You have been successfully registered for the camp meeting.\n"
@@ -77,11 +77,11 @@ async def send_sms_termii(
     country = country.lower()
     if phone_number.startswith("0"):
         if country == "nigeria":
-            phone_number = "+234" + phone_number[1:]
+            phone_number = "234" + phone_number[1:]
         elif country == "ghana":
-            phone_number = "+233" + phone_number[1:]
+            phone_number = "233" + phone_number[1:]
         elif country == "kenya":
-            phone_number = "+254" + phone_number[1:]
+            phone_number = "254" + phone_number[1:]
 
     sms_content = (
         f"Good day {name}! You have been successfully registered for the camp meeting.\n"

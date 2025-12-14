@@ -31,7 +31,7 @@ class UserBase(BaseModel):
     hall_name: Optional[str] = None
     floor: Optional[str] = None
     bed_number: Optional[str] = None
-    extra_beds: Optional[list[int]] = None  # Add this line
+    extra_beds: Optional[list[str]] = None  # Add this line
 
 
 class UserRegistration(UserBase):
