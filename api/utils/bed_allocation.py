@@ -1,6 +1,6 @@
 from api.v1.schemas.floor_management import FloorCreateSchema
 from api.v1.models.floor import HallFloors
-from typing import Optional
+from typing import Optional, List, Tuple
 
 
 def beds_required(
@@ -8,25 +8,35 @@ def beds_required(
     last_assigned_bed: int,
     counter_value: int,
     bunk_size: int = 2,
-) -> tuple[str, int, int]:
+) -> Tuple[List[str], int, int]:
     """
-    Returns the next available bed label (e.g., '1a', '1b', '2a', ...) and updates counters.
+    Returns allocated bed labels and updated counters.
+
+    - Allocates 1 bed if children < 2
+    - Allocates 2 beds if children >= 2
     """
-    # Calculate sub-bed letter
-    sub_bed_letter = chr(ord("a") + counter_value)
-    bed_label = f"{last_assigned_bed}{sub_bed_letter}"
 
-    # Update counter and bed number for next assignment
-    next_counter = counter_value + 1
-    next_bed = last_assigned_bed
-    if next_counter >= bunk_size:
-        next_counter = 0
-        next_bed += 1
+    beds_needed = 2 if no_children is not None and no_children >= 2 else 1
+    allocated_beds: List[str] = []
 
-    return bed_label, next_bed, next_counter
+    for _ in range(beds_needed):
+        # Calculate sub-bed letter (a, b, ...)
+        sub_bed_letter = chr(ord("a") + counter_value)
+        bed_label = f"{last_assigned_bed}{sub_bed_letter}"
+        allocated_beds.append(bed_label)
+
+        # Update counters
+        counter_value += 1
+        if counter_value >= bunk_size:
+            counter_value = 0
+            last_assigned_bed += 1
+
+    return allocated_beds, last_assigned_bed, counter_value
 
 
-def floor_create_logic(floor_no: int, hall_id: str, no_beds: Optional[int]) -> FloorCreateSchema:
+def floor_create_logic(
+    floor_no: int, hall_id: str, no_beds: Optional[int]
+) -> FloorCreateSchema:
     if no_beds is None:
         no_beds = 0
     return FloorCreateSchema(

@@ -12,7 +12,7 @@ from api.utils.bed_allocation import beds_required, gender_classifier
 from datetime import datetime
 from sqlalchemy import or_
 from api.v1.models.phone_number import PhoneNumber
-#from api.utils.message import send_sms
+from api.utils.message import send_sms_termii, send_sms_termii_whatsapp
 
 registration_route = APIRouter(tags=["Hall Registration"])
 
@@ -102,7 +102,7 @@ async def register_user(
             total_beds = floor.no_beds * bunk_size
             assigned_count = ((floor.last_assigned_bed - 1) * bunk_size) + floor.counter_value
             if assigned_count < total_beds:
-                bed_label, next_bed, next_counter = beds_required(
+                bed_labels, next_bed, next_counter = beds_required(
                     payload.no_children, floor.last_assigned_bed, floor.counter_value, bunk_size
                 )
                 # Assign bed and update counters
@@ -117,8 +117,8 @@ async def register_user(
                     category=payload.category,
                     hall_name=hall.hall_name,
                     floor=floor.floor_id,
-                    bed_number=bed_label,
-                    extra_beds=[],
+                    bed_number=bed_labels[0],
+                    extra_beds=bed_labels[1:] if len(bed_labels) > 1 else [],
                     phone_number_id=phone.id,
                     gender=gender,
                     age_range=payload.age_range,
@@ -130,7 +130,7 @@ async def register_user(
                     local_assembly=payload.local_assembly,
                     local_assembly_address=payload.local_assembly_address,
                     names_children=payload.names_children,
-                    medical_issues=payload.medical_issues
+                    medical_issues=payload.medical_issues,
                 )
                 db.add(new_user)
                 db.commit()
@@ -149,7 +149,9 @@ async def register_user(
             detail="All eligible halls are full for this category and age range."
         )
     floor_record = db.query(HallFloors).filter(HallFloors.floor_id == new_user.floor).first()
-    #send_sms(phone_number=number, name=new_user.first_name, arrival_date=new_user.arrival_date, hall=new_user.hall_name, floor=floor_record.floor_no, bed_no=new_user.bed_number, country=new_user.country)
+
+    await send_sms_termii(phone_number=number, name=new_user.first_name, arrival_date=new_user.arrival_date, hall=new_user.hall_name, floor=floor_record.floor_no, bed_no=new_user.bed_number, country=new_user.country)
+    await send_sms_termii_whatsapp(phone_number=number, name=new_user.first_name, arrival_date=new_user.arrival_date, hall=new_user.hall_name, floor=floor_record.floor_no, bed_no=new_user.bed_number, country=new_user.country)
 
     return UserDisplay(
         
