@@ -307,7 +307,7 @@ def get_active_users(db: Session = Depends(get_db)):
             first_name=user.first_name,
             category=user.category,
             hall_name=user.hall_name,
-            floor=f"Floor {user.floor}",
+            floor=f"Floor {db.query(HallFloors).filter(HallFloors.floor_id == user.floor).first().floor_no}" if user.floor else None,
             bed_number=user.bed_number,
             extra_beds=user.extra_beds or [],
             phone_number=phone_map.get(user.phone_number_id, "Unknown"),
