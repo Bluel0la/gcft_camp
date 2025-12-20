@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from api.utils.file_upload import upload_to_dropbox, dbx, upload_to_dropbox_async
 from sqlalchemy.orm import Session
 from api.v1.schemas.hall_registration import HallCreate, HallUpdate, HallView
 from api.v1.schemas.phone_registration import PhoneNumberRegistration, PhoneNumberView
@@ -14,9 +13,7 @@ from api.v1.models import phone_number, user, category, hall
 from api.v1.models.hall import Hall
 from api.v1.models.floor import HallFloors
 from api.db.database import get_db
-from api.utils.bed_allocation import beds_required, gender_classifier
 from datetime import datetime
-from sqlalchemy import or_
 from api.v1.models.phone_number import PhoneNumber
 from api.utils.message import send_sms_termii, send_sms_termii_whatsapp
 from dropbox.exceptions import ApiError
@@ -87,13 +84,16 @@ async def register_user(
     #    bed_no=new_user.bed_number,
     #    country=new_user.country,
     #)
+    
+    floor_record = db.query(HallFloors).filter(HallFloors.floor_id == floor.floor_no).first()
+    
 
     return {
         "id": new_user.id,
         "name": new_user.first_name,
         "category": new_user.category,
         "hall_name": new_user.hall_name,
-        "floor": f"Floor {floor.floor_no}",
+        "floor": f"Floor {floor_record.floor_no}",
         "bed_number": new_user.bed_number,
         "extra_beds": new_user.extra_beds or [],
         "phone_number": number,
