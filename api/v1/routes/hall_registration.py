@@ -98,7 +98,7 @@ async def register_user(
         "bed_number": new_user.bed_number,
         "extra_beds": new_user.extra_beds or [],
         "phone_number": number,
-        "status": new_user.active_status,
+        "active_status": new_user.active_status,
         "profile_picture_url": new_user.profile_picture_url,
         "age_range": new_user.age_range,
         "marital_status": new_user.marital_status,
