@@ -30,7 +30,7 @@ class UserBase(BaseModel):
     local_assembly: Optional[str] = None
     local_assembly_address: Optional[str] = None
     hall_name: Optional[str] = None
-    floor: Optional[UUID] = None
+    floor: Optional[str] = None
     bed_number: Optional[str] = None
     active_status: Optional[str] = None
     extra_beds: Optional[list[str]] = None  
