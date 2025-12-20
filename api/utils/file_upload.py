@@ -6,6 +6,7 @@ from dropbox.exceptions import ApiError
 
 load_dotenv(".env")
 
+
 # Initialize Dropbox Client
 def get_dropbox_client() -> dropbox.Dropbox:
     return dropbox.Dropbox(
@@ -14,7 +15,9 @@ def get_dropbox_client() -> dropbox.Dropbox:
         app_secret=os.getenv("DROPBOX_APP_SECRET"),
     )
 
+
 dbx = get_dropbox_client()
+
 
 # Handle File Uploads to Dropbox
 def upload_to_dropbox(file_bytes: bytes, dropbox_path: str) -> str:
@@ -51,7 +54,27 @@ async def upload_to_dropbox_async(file_bytes: bytes, dropbox_path: str) -> str:
     loop = asyncio.get_running_loop()
 
     def _upload_and_share() -> str:
-        return upload_to_dropbox(file_bytes, dropbox_path)
+        # 1️⃣ Upload (idempotent)
+        dbx.files_upload(
+            file_bytes,
+            dropbox_path,
+            mode=WriteMode("overwrite"),
+            mute=True,
+        )
+
+        # 2️⃣ Try to create shared link
+        try:
+            shared_link = dbx.sharing_create_shared_link_with_settings(dropbox_path)
+            return shared_link.url.replace("?dl=0", "?raw=1")
+
+        # 3️⃣ If link already exists → reuse it
+        except ApiError as e:
+            if e.error.is_shared_link_already_exists():
+                links = dbx.sharing_list_shared_links(path=dropbox_path).links
+                if links:
+                    return links[0].url.replace("?dl=0", "?raw=1")
+
+            raise
 
     return await loop.run_in_executor(None, _upload_and_share)
 
