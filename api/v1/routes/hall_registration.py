@@ -85,7 +85,7 @@ async def register_user(
     #    country=new_user.country,
     #)
     
-    floor_record = db.query(HallFloors).filter(HallFloors.floor_id == floor.floor_no).first()
+    floor_record = db.query(HallFloors).filter(HallFloors.floor_id == floor.floor_id).first()
     
 
     return {
