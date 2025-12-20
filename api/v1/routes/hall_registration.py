@@ -90,7 +90,7 @@ async def register_user(
 
     return {
         "id": new_user.id,
-        "name": new_user.first_name,
+        "first_name": new_user.first_name,
         "gender": new_user.gender,
         "category": new_user.category,
         "hall_name": new_user.hall_name,
