@@ -78,17 +78,28 @@ async def register_user(
         file=file,
     )
 
-    await send_sms_termii(
-        phone_number=number,
-        name=new_user.first_name,
-        arrival_date=new_user.arrival_date,
-        hall=new_user.hall_name,
-        floor=floor.floor_no,
-        bed_no=new_user.bed_number,
-        country=new_user.country,
-    )
+    #await send_sms_termii(
+    #    phone_number=number,
+    #    name=new_user.first_name,
+    #    arrival_date=new_user.arrival_date,
+    #    hall=new_user.hall_name,
+    #    floor=floor.floor_no,
+    #    bed_no=new_user.bed_number,
+    #    country=new_user.country,
+    #)
 
-    return UserDisplay.from_orm(new_user)
+    return {
+        "id": new_user.id,
+        "name": new_user.first_name,
+        "category": new_user.category,
+        "hall_name": new_user.hall_name,
+        "floor": f"Floor {floor.floor_no}",
+        "bed_number": new_user.bed_number,
+        "extra_beds": new_user.extra_beds or [],
+        "phone_number": number,
+        "status": new_user.active_status,
+        "profile_picture_url": new_user.profile_picture_url,
+    }
 
 
 @registration_route.get("/user/{number}", response_model=UserSummary)
@@ -125,6 +136,13 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         "phone_number": phone.phone_number,
         "status": user_record.active_status,
         "profile_picture_url": user_record.profile_picture_url,
+        "gender": user_record.gender,
+        "children_names": user_record.names_children,
+        "children_no": user_record.no_children,
+        "local_assembly": user_record.local_assembly,
+        "local_assembly_address": user_record.local_assembly_address,
+        "Medical_issues": user_record.medical_issues,
+        "status": user_record.active_status
     }
 
 
@@ -241,5 +259,5 @@ def get_active_users(db: Session = Depends(get_db)):
     ]
 
 # Endpoint to manually allocate a bed to a user
-#@registration_route.post("/allocate-bed/{user_id}", response_model=UserView)
-#def allocate_bed_to_user(user_id:int, db: Session = Depends(get_db)):
+# @registration_route.post("/allocate-bed/{user_id}", response_model=UserView)
+# def allocate_bed_to_user(user_id:int, db: Session = Depends(get_db)):
