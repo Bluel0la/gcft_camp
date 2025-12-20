@@ -91,6 +91,7 @@ async def register_user(
     return {
         "id": new_user.id,
         "name": new_user.first_name,
+        "gender": new_user.gender,
         "category": new_user.category,
         "hall_name": new_user.hall_name,
         "floor": f"Floor {floor_record.floor_no}",
@@ -99,6 +100,11 @@ async def register_user(
         "phone_number": number,
         "status": new_user.active_status,
         "profile_picture_url": new_user.profile_picture_url,
+        "age_range": new_user.age_range,
+        "marital_status": new_user.marital_status,
+        "country": new_user.country,
+        "state": new_user.state,
+        "arrival_date": new_user.arrival_date
     }
 
 
