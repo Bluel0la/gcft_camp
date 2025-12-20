@@ -1,5 +1,5 @@
 from fastapi_mail import MessageSchema, MessageType
-from api.utils.email import fm
+from api.utils.email_functionality import fm
 
 ADMIN_EMAILS = [
     "joseph.ayodele@stu.cu.edu.ng",

@@ -1,18 +1,18 @@
-"""initial migration
+"""Initial Migrations
 
-Revision ID: ce7032f7045a
+Revision ID: ded00673d83e
 Revises: 
-Create Date: 2025-12-07 23:35:23.545420
+Create Date: 2025-12-15 20:06:41.805071
 
 """
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'ce7032f7045a'
+revision: str = 'ded00673d83e'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -29,7 +29,7 @@ def upgrade() -> None:
     op.create_table('halls',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('hall_name', sa.String(), nullable=False),
-    sa.Column('no_beds', sa.Integer(), nullable=False),
+    sa.Column('no_beds', sa.Integer(), nullable=True),
     sa.Column('no_floors', sa.Integer(), nullable=False),
     sa.Column('gender', sa.String(), nullable=False),
     sa.PrimaryKeyConstraint('id'),
@@ -55,10 +55,11 @@ def upgrade() -> None:
     sa.Column('floor_id', sa.UUID(), nullable=False),
     sa.Column('hall_id', sa.Integer(), nullable=False),
     sa.Column('floor_no', sa.Integer(), nullable=False),
-    sa.Column('age_range', sa.Enum('10-17', '18-25', '26-35', '36-45', '45-55', '56-65', '66-70', '71+', name='age_range_enum'), nullable=True),
+    sa.Column('age_ranges', postgresql.ARRAY(sa.String()), nullable=True),
     sa.Column('no_beds', sa.Integer(), nullable=True),
     sa.Column('last_assigned_bed', sa.Integer(), nullable=True),
     sa.Column('status', sa.Enum('full', 'not-full', name='floor_status'), nullable=False),
+    sa.Column('counter_value', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['hall_id'], ['halls.id'], ),
     sa.PrimaryKeyConstraint('floor_id')
     )
@@ -76,10 +77,11 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_images_id'), 'images', ['id'], unique=False)
     op.create_table('floor_category_association',
-    sa.Column('floor_id', sa.UUID(), nullable=True),
-    sa.Column('category_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['category_id'], ['categories.id'], ),
-    sa.ForeignKeyConstraint(['floor_id'], ['hall_floors.floor_id'], )
+    sa.Column('floor_id', sa.UUID(), nullable=False),
+    sa.Column('category_id', sa.Integer(), nullable=False),
+    sa.ForeignKeyConstraint(['category_id'], ['categories.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['floor_id'], ['hall_floors.floor_id'], ),
+    sa.PrimaryKeyConstraint('floor_id', 'category_id')
     )
     op.create_table('users',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -99,7 +101,7 @@ def upgrade() -> None:
     sa.Column('local_assembly_address', sa.String(), nullable=True),
     sa.Column('hall_name', sa.String(), nullable=True),
     sa.Column('floor', sa.UUID(), nullable=True),
-    sa.Column('bed_number', sa.Integer(), nullable=True),
+    sa.Column('bed_number', sa.String(), nullable=True),
     sa.Column('extra_beds', sa.JSON(), nullable=True),
     sa.Column('active_status', sa.Enum('active', 'inactive', name='active_status_enum'), nullable=False),
     sa.ForeignKeyConstraint(['floor'], ['hall_floors.floor_id'], ),

@@ -13,4 +13,4 @@ class Hall(Base):
     gender = Column(String(), nullable=False)
 
     residents = relationship("User", back_populates="hall")
-    floors = relationship("HallFloors", back_populates="hall_relationship")
+    floors = relationship("HallFloors", back_populates="hall_relationship", cascade="all, delete-orphan", passive_deletes=True)

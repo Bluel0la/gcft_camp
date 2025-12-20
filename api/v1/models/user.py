@@ -25,6 +25,7 @@ class User(Base):
     floor = Column(ForeignKey("hall_floors.floor_id"), nullable=True)
     bed_number = Column(String, nullable=True)
     extra_beds = Column(JSON, nullable=True)
+    profile_picture_url = Column(String, nullable=True, default="getalife")
     active_status = Column(Enum("active", "inactive", name="active_status_enum"), default="inactive", nullable=False)
 
     phone = relationship("PhoneNumber", back_populates="user")

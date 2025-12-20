@@ -4,15 +4,10 @@ from twilio.rest import Client
 
 load_dotenv(".env")
 
-username = os.getenv("SMS_USERNAME")
-password= os.getenv("SMS_PASSWORD")
-account_sid = os.getenv("TWILIO_SID")
-auth_token = os.getenv("TWILIO_TOKEN")
-client = Client(account_sid, auth_token)
 
 base_url = os.getenv("TERMI_BASE_URL")
 termi_api_key= os.getenv("TERMI_API_KEY")
-
+from_client = os.getenv("TERMI_FROM_CLIENT")
 
 async def send_sms_termii_whatsapp(phone_number: str, name: str, arrival_date: str, hall: str, floor: str, bed_no: str, country: str,
 ):
@@ -41,7 +36,7 @@ async def send_sms_termii_whatsapp(phone_number: str, name: str, arrival_date: s
 
     payload = {
         "to": phone_number,
-        "from": "GCFT",
+        "from": f"{from_client}",
         "sms": sms_content,
         "type": "plain",
         "channel": "whatsapp",
@@ -54,7 +49,7 @@ async def send_sms_termii_whatsapp(phone_number: str, name: str, arrival_date: s
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.post(
-            f"{base_url}/api/sms/send", headers=headers, json=payload
+            f"https://{base_url}/api/sms/send", headers=headers, json=payload
         )
 
     return response.json()
@@ -94,10 +89,10 @@ async def send_sms_termii(
 
     payload = {
         "to": phone_number,
-        "from": "GCFT",
+        "from": f"{from_client}",
         "sms": sms_content,
         "type": "plain",
-        "channel": "dnd",
+        "channel": "generic",
         "api_key": termi_api_key,
     }
 
@@ -107,7 +102,7 @@ async def send_sms_termii(
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.post(
-            f"{base_url}/api/sms/send", headers=headers, json=payload
+            f"https://{base_url}/api/sms/send", headers=headers, json=payload
         )
 
     return response.json()

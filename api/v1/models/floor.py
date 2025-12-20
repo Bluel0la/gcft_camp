@@ -9,7 +9,7 @@ floor_category_association = Table(
     "floor_category_association",
     Base.metadata,
     Column("floor_id", UUID(as_uuid=True), ForeignKey("hall_floors.floor_id"), primary_key=True),
-    Column("category_id", Integer, ForeignKey("categories.id"))
+    Column("category_id", Integer, ForeignKey("categories.id", ondelete="CASCADE"), primary_key=True)
 )
 
 class HallFloors(Base):
@@ -21,7 +21,7 @@ class HallFloors(Base):
     age_ranges = Column(ARRAY(String), nullable=True)
 
     # Many-to-many relationship
-    categories = relationship("Category", secondary=floor_category_association, back_populates="floors")
+    categories = relationship("Category", secondary=floor_category_association, back_populates="floors", passive_deletes=True)
 
     no_beds = Column(Integer, nullable=True, default=0)
     last_assigned_bed = Column(Integer, nullable=True, default=0)
