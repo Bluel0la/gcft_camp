@@ -18,6 +18,7 @@ class User(Base):
     country = Column(String, nullable=False)
     state = Column(String, nullable=False)
     arrival_date = Column(Date, nullable=False)
+    date_verified = Column(Date, nullable=True)
     medical_issues = Column(String, nullable=True)
     local_assembly = Column(String, nullable=True)
     local_assembly_address = Column(String, nullable=True)
@@ -26,7 +27,7 @@ class User(Base):
     bed_number = Column(String, nullable=True)
     extra_beds = Column(JSON, nullable=True)
     profile_picture_url = Column(String, nullable=True, default="getalife")
-    active_status = Column(Enum("active", "inactive", name="active_status_enum"), default="inactive", nullable=False)
+    active_status = Column(Enum("active", "inactive", "relocated", name="active_status_enum"), default="inactive", nullable=False)
 
     phone = relationship("PhoneNumber", back_populates="user")
     hall = relationship("Hall", back_populates="residents")

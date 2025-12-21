@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from api.v1.models.user import User
 from api.utils.bed_allocation import allocate_bed
 from api.utils.bed_allocation import gender_classifier
-from api.utils.file_upload import upload_to_dropbox_async, delete_from_dropbox
+from api.utils.file_upload import upload_to_dropbox, delete_from_dropbox
 from PIL import Image
 import io
 
@@ -26,12 +26,6 @@ async def register_user_service(
             detail="All eligible halls are full for this category and age range.",
         )
 
-    # 🔍 Secure image validation
-    try:
-        image = Image.open(io.BytesIO(await file.read()))
-        image.verify()
-    except Exception:
-        raise HTTPException(400, "Invalid image file")
 
     ext = file.filename.split(".")[-1]
     unique_name = f"{payload.first_name}_{payload.local_assembly}.{ext}"
@@ -42,10 +36,7 @@ async def register_user_service(
     image_url = None
 
     try:
-        image_url = await upload_to_dropbox_async(
-            file_bytes,
-            dropbox_path,
-        )
+        image_url = upload_to_dropbox(file_bytes,dropbox_path,)
 
         new_user = User(
             first_name=payload.first_name,
