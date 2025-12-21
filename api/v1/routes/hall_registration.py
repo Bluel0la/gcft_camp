@@ -94,7 +94,7 @@ async def register_user(
         "gender": new_user.gender,
         "category": new_user.category,
         "hall_name": new_user.hall_name,
-        "floor": f"Floor {floor_record.floor_no}",
+        "floor": "Triple A Games are ass.....",#f"Floor {floor_record.floor_no}",
         "bed_number": new_user.bed_number,
         "extra_beds": new_user.extra_beds or [],
         "phone_number": number,
