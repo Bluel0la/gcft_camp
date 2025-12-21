@@ -148,7 +148,8 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         "local_assembly_address": user_record.local_assembly_address,
         "Medical_issues": user_record.medical_issues,
         "status": user_record.active_status,
-        "arrival_date": user_record.arrival_date
+        "arrival_date": user_record.arrival_date,
+        "state": user_record.state
     }
 
 

@@ -18,7 +18,7 @@ def beds_required(
     - Allocates 2 beds if children >= 2
     """
 
-    beds_needed = 2 if no_children is not None and no_children >= 2 else 1
+    beds_needed = 4 if no_children is not None and no_children >= 2 else 1
     allocated_beds: List[str] = []
 
     for _ in range(beds_needed):

@@ -102,6 +102,7 @@ class UserSummary(BaseModel):
     local_assembly_address: str
     arrival_date: date
     extra_beds: Optional[list[str]] = None
+    state: str
 
 
     model_config = ConfigDict(from_attributes=True)
