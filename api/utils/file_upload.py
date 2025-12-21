@@ -18,13 +18,34 @@ dbx = get_dropbox_client()
 
 
 # Handle File Uploads to Dropbox
-def upload_to_dropbox(file_bytes: str, dropbox_path: str) -> str:
-    """Upload file to dropbox and return a shareable link"""
+from urllib.parse import urlparse, urlunparse
+
+
+def upload_to_dropbox(file_bytes: bytes, dropbox_path: str) -> str:
+    """Upload file to Dropbox and return a cleaned shareable link"""
 
     dbx.files_upload(file_bytes, dropbox_path, mode=WriteMode("overwrite"))
 
     shared_link = dbx.sharing_create_shared_link_with_settings(dropbox_path)
-    return shared_link.url.replace("?dl=0", "?raw=1")
+
+    parsed = urlparse(shared_link.url)
+
+    # Rebuild the URL while keeping the trailing '?'
+    cleaned_url = (
+        urlunparse(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                "",  # params
+                "",  # query removed
+                "",  # fragment
+            )
+        )
+        + "?"
+    )
+
+    return cleaned_url
 
 
 # Handle File Deletes in Dropbox
