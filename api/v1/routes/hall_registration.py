@@ -175,7 +175,10 @@ def get_all_users(db: Session = Depends(get_db)):
             extra_beds=user.extra_beds or [],
             phone_number=phone_map.get(user.phone_number_id, "Unknown"),
             active_status=user.active_status,
-            profile_picture_url=user.profile_picture_url
+            profile_picture_url=user.profile_picture_url,
+            local_assembly=user.local_assembly,
+            local_assembly_address=user.local_assembly_address,
+            arrival_date=user.arrival_date
         )
         for user in users
     ]
@@ -258,7 +261,10 @@ def get_active_users(db: Session = Depends(get_db)):
             extra_beds=user.extra_beds or [],
             phone_number=phone_map.get(user.phone_number_id, "Unknown"),
             active_status=user.active_status,
-            profile_picture_url=user.profile_picture_url
+            profile_picture_url=user.profile_picture_url,
+            local_assembly=user.local_assembly,
+            local_assembly_address=user.local_assembly_address,
+            arrival_date=user.arrival_date
         )
         for user in users
     ]
