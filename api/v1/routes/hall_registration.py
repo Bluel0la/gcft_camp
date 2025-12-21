@@ -135,7 +135,7 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         "first_name": user_record.first_name,
         "category": user_record.category,
         "hall_name": user_record.hall_name,
-        "floor": f"Floor {floor.floor_no}",
+        "floor": "Wrong Endpoint",#f"Floor {floor.floor_no}",
         "bed_number": user_record.bed_number,
         "extra_beds": user_record.extra_beds or [],
         "phone_number": phone.phone_number,
