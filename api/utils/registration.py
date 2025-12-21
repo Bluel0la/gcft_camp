@@ -36,7 +36,7 @@ async def register_user_service(
     image_url = None
 
     try:
-        image_url = upload_to_dropbox(file_bytes,dropbox_path,)
+        image_url = upload_to_dropbox(file_bytes,dropbox_path)
 
         new_user = User(
             first_name=payload.first_name,
