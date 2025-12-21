@@ -180,7 +180,8 @@ def get_all_users(db: Session = Depends(get_db)):
             profile_picture_url=user.profile_picture_url,
             local_assembly=user.local_assembly,
             local_assembly_address=user.local_assembly_address,
-            arrival_date=user.arrival_date
+            arrival_date=user.arrival_date,
+            state=user.state
         )
         for user in users
     ]
@@ -266,7 +267,8 @@ def get_active_users(db: Session = Depends(get_db)):
             profile_picture_url=user.profile_picture_url,
             local_assembly=user.local_assembly,
             local_assembly_address=user.local_assembly_address,
-            arrival_date=user.arrival_date
+            arrival_date=user.arrival_date,
+            state=user.state
         )
         for user in users
     ]
