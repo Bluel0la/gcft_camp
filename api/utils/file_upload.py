@@ -30,7 +30,7 @@ def upload_to_dropbox(file_bytes: bytes, dropbox_path: str) -> str:
 
     parsed = urlparse(shared_link.url)
 
-    # Rebuild the URL while keeping the trailing '?'
+    # Rebuild the URL
     cleaned_url = (
         urlunparse(
             (
@@ -42,7 +42,6 @@ def upload_to_dropbox(file_bytes: bytes, dropbox_path: str) -> str:
                 "",  # fragment
             )
         )
-        + "?"
     )
 
     return cleaned_url
