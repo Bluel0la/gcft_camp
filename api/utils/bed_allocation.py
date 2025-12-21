@@ -97,7 +97,7 @@ def allocate_bed(
                 ),
             )
             .order_by(HallFloors.floor_no)
-            .with_for_update()  # 🔐 critical lock
+            .with_for_update()
             .all()
         )
 
