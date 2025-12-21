@@ -98,6 +98,9 @@ class UserSummary(BaseModel):
     phone_number: str
     profile_picture_url: str
     active_status: str
+    local_assembly: str
+    local_assembly_address: str
+    arrival_date: date
 
 
     model_config = ConfigDict(from_attributes=True)
