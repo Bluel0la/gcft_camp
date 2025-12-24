@@ -27,6 +27,9 @@ class User(Base):
     bed_number = Column(String, nullable=True)
     extra_beds = Column(JSON, nullable=True)
     profile_picture_url = Column(String, nullable=True, default="getalife")
+    object_key = Column(String, unique=True, nullable=False)
+    date_presigned_url_generated = Column(Date, nullable=False)
+
     active_status = Column(Enum("active", "inactive", "relocated", name="active_status_enum"), default="inactive", nullable=False)
 
     phone = relationship("PhoneNumber", back_populates="user")

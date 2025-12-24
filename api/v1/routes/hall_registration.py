@@ -1,24 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
-from api.v1.schemas.hall_registration import HallCreate, HallUpdate, HallView
 from api.v1.schemas.phone_registration import PhoneNumberRegistration, PhoneNumberView
-from api.v1.schemas.registration import (
-    UserDisplay,
-    UserRegistration,
-    UserSummary,
-    UserView,
-)
+from api.v1.schemas.registration import UserDisplay, UserRegistration, UserSummary, UserView
 from api.v1.services.full_halls import send_hall_full_email
-from api.v1.models import phone_number, user, category, hall
-from api.v1.models.hall import Hall
+from api.v1.models import phone_number, user
 from api.v1.models.floor import HallFloors
 from api.db.database import get_db
 from datetime import datetime
 from api.v1.models.phone_number import PhoneNumber
 from api.utils.message import send_sms_termii, send_sms_termii_whatsapp
-from dropbox.exceptions import ApiError
 from api.utils.registration import register_user_service
 from api.v1.models.user import User
+from api.utils.file_upload import create_download_presigned_url
 
 registration_route = APIRouter(tags=["Hall Registration"])
 
@@ -73,6 +66,7 @@ async def register_user(
         payload=payload,
         phone=phone,
         file=file,
+        number=number
     )
 
     #await send_sms_termii(
@@ -129,7 +123,10 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
     floor = (
         db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
     )
-
+    
+    # Check if the users presigned url has expired
+     
+    
     return {
         "id": user_record.id,
         "first_name": user_record.first_name,

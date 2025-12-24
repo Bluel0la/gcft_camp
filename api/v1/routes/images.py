@@ -1,6 +1,6 @@
 from api.v1.schemas.Images import ImageCategoryCreate, ImageCategoryView, ImageCreate, ImageView, List
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
-from api.utils.file_upload import upload_to_dropbox, delete_from_dropbox, dbx
+from api.utils.file_upload import upload_to_s3, delete_from_s3
 from api.v1.models.image_categories import ImageCategory
 from api.v1.models.images import Image
 from sqlalchemy.orm import Session
@@ -63,24 +63,12 @@ async def add_image_to_category(
     ext = file.filename.split(".")[-1]
     unique_name = f"{uuid.uuid4().hex}.{ext}"
 
-    # Ensure category folder exists in Dropbox
-    from dropbox.exceptions import ApiError
-
-    folder_path = f"/{category_name}"
-    try:
-        dbx.files_create_folder_v2(folder_path)
-    except ApiError as e:
-        # Ignore error if folder already exists
-        if not (hasattr(e.error, "is_path") and e.error.get_path().is_conflict()):
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Dropbox folder creation failed: {e}",
-            )
-
-    # Upload to Dropbox
+    # Upload the image to AWS
+    object_key = f"/{category_name}/{unique_name}"
     file_bytes = await file.read()
-    dropbox_path = f"{folder_path}/{unique_name}"
-    image_url = upload_to_dropbox(file_bytes, dropbox_path)
+    image_url = upload_to_s3(
+        file_bytes=file_bytes, object_key=object_key, content_type=file.content_type
+    )
 
     # Save to the DB
     new_image = Image(

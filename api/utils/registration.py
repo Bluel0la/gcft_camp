@@ -3,16 +3,17 @@ from sqlalchemy.orm import Session
 from api.v1.models.user import User
 from api.utils.bed_allocation import allocate_bed
 from api.utils.bed_allocation import gender_classifier
-from api.utils.file_upload import upload_to_dropbox, delete_from_dropbox
+from api.utils.file_upload import upload_to_s3, delete_from_s3
 from PIL import Image
-import io
-
+import uuid
+from datetime import datetime
 
 async def register_user_service(
     db: Session,
     payload,
     phone,
     file,
+    number
 ):
     gender = gender_classifier(payload.category)
     if gender not in {"male", "female"}:
@@ -26,17 +27,21 @@ async def register_user_service(
             detail="All eligible halls are full for this category and age range.",
         )
 
-
     ext = file.filename.split(".")[-1]
-    unique_name = f"{payload.first_name}_{payload.local_assembly}.{ext}"
-    folder_path = f"/{hall.hall_name}/Floor_{floor.floor_no}"
-    dropbox_path = f"{folder_path}/{unique_name}"
+    safe_name=payload.first_name.lower().replace(" ", "_")
+    unique_name = f"{safe_name}_{uuid.uuid4().hex}.{ext}"
+    folder_path = f"users/{number}"
+    object_key = f"{folder_path}/{unique_name}"
     file_bytes = await file.read()
 
     image_url = None
 
     try:
-        image_url = upload_to_dropbox(file_bytes,dropbox_path)
+        image_url = upload_to_s3(
+            file_bytes=file_bytes,
+            object_key=object_key,
+            content_type=file.content_type
+        )
 
         new_user = User(
             first_name=payload.first_name,
@@ -58,6 +63,8 @@ async def register_user_service(
             names_children=payload.names_children,
             medical_issues=payload.medical_issues,
             profile_picture_url=image_url,
+            object_key=object_key,
+            date_presigned_url_generated=datetime.utcnow()
         )
 
         db.add(new_user)
@@ -68,5 +75,5 @@ async def register_user_service(
     except Exception:
         db.rollback()
         if image_url:
-            delete_from_dropbox(dropbox_path)
+            delete_from_s3(object_key)
         raise
