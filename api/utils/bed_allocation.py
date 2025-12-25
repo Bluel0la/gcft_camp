@@ -14,8 +14,6 @@ camp_start_date = os.getenv("START_DATE")
 camp_end_date = os.getenv("END_DATE")
 
 
-# Function to filter through late comers
-def fetch_first_late_comer()
 
 
 def beds_required( no_children: Optional[int], last_assigned_bed: int, counter_value: int, bunk_size: int = 2) -> Tuple[List[str], int, int]:
@@ -75,6 +73,71 @@ def gender_classifier(category: str) -> str:
 
 
 def allocate_bed( db: Session, gender: str, payload ):
+    eligible_halls = (
+        db.query(Hall)
+        .filter((Hall.gender == gender) | (Hall.hall_name == "Jerusalem Hall"))
+        #.order_by(Hall.hall_name)
+        .all()
+    )
+
+    for hall in eligible_halls:
+        floors = (
+            db.query(HallFloors)
+            .filter(
+                HallFloors.hall_id == hall.id,
+                HallFloors.status == "not-full",
+            ).order_by(
+                case(
+                    (
+                        and_(
+                            HallFloors.categories.any(category_name=payload.category),
+                            HallFloors.age_ranges.contains([payload.age_range]),
+                        ),
+                        0,
+                    ),
+                    else_ =1,
+                ),
+                HallFloors.floor_no,
+            )
+            .with_for_update()
+            .all()
+        )
+
+        for floor in floors:
+            bunk_size = 2
+
+            total_beds = floor.no_beds * bunk_size
+            assigned = ((floor.last_assigned_bed - 1) * bunk_size) + floor.counter_value
+
+            if assigned < total_beds:
+                beds, next_bed, next_counter = beds_required(
+                    payload.no_children,
+                    floor.last_assigned_bed,
+                    floor.counter_value,
+                    bunk_size,
+                )
+
+                floor.last_assigned_bed = next_bed
+                floor.counter_value = next_counter
+
+                if (((next_bed - 1) * bunk_size) + next_counter) >= total_beds:
+                    floor.status = "full"
+
+                return hall, floor, beds
+
+    return None, None, None
+
+
+def retrieve_first_late_comer(floor: HallFloors, db: Session) -> Optional[User]:
+    # extraction all users associated with a floor first
+    users_on_floor = (
+        db.query(User)
+        .filter()
+    )
+     
+
+
+def manual_allocate_bed( db: Session, gender: str, payload ):
     eligible_halls = (
         db.query(Hall)
         .filter((Hall.gender == gender) | (Hall.hall_name == "Jerusalem Hall"))
