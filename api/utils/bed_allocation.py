@@ -3,7 +3,20 @@ from api.v1.models.hall import Hall
 from sqlalchemy.orm import Session
 from api.v1.models.floor import HallFloors
 from typing import Optional, List, Tuple
-from sqlalchemy import or_, case, and_
+from sqlalchemy import case, and_
+from dotenv import load_dotenv
+from api.v1.models.floor import HallFloors
+from api.v1.models.user import User
+import os
+
+load_dotenv(".env")
+camp_start_date = os.getenv("START_DATE")
+camp_end_date = os.getenv("END_DATE")
+
+
+# Function to filter through late comers
+def fetch_first_late_comer()
+
 
 def beds_required( no_children: Optional[int], last_assigned_bed: int, counter_value: int, bunk_size: int = 2) -> Tuple[List[str], int, int]:
     """
