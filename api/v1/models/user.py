@@ -11,7 +11,7 @@ class User(Base):
     category = Column(String, nullable=False)
     first_name = Column(String, nullable=False)
     gender = Column(String, nullable=False)
-    age_range = Column(Enum("10-17", "18-25", "26-35", "36-45", "45-55", "56-65", "66-70", "71+", name="age_range_enum"), nullable=False, default="18-25")
+    age_range = Column(Enum("10-17", "18-25", "26-35", "36-45", "46-55", "56-65", "66-70", "71+", name="age_range_enum"), nullable=False, default="18-25")
     marital_status = Column(String, nullable=False)
     no_children = Column(Integer, nullable=True)
     names_children = Column(String, nullable=True)
