@@ -55,7 +55,7 @@ async def send_sms_termii_whatsapp(phone_number: str, name: str, arrival_date: s
     return response.json()
 
 
-async def send_sms_termii(
+def send_sms_termii(
     phone_number: str,
     name: str,
     arrival_date: str,
@@ -100,9 +100,7 @@ async def send_sms_termii(
         "Content-Type": "application/json",
     }
 
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        response = await client.post(
-            f"https://{base_url}/api/sms/send", headers=headers, json=payload
-        )
+    response = requests.request("POST", base_url, headers=headers, json=payload)
+
 
     return response.json()

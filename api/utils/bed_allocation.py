@@ -84,15 +84,7 @@ def allocate_bed( db: Session, gender: str, payload ):
                         ),
                         0,
                     ),
-                    (
-                        HallFloors.categories.any(category_name=payload.category),
-                        1,
-                    ),
-                    (
-                        HallFloors.age_ranges.contains([payload.age_range]),
-                        2,
-                    ),
-                    else_ =3,
+                    else_ =1,
                 ),
                 HallFloors.floor_no,
             )
