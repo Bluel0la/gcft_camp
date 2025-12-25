@@ -95,12 +95,12 @@ def send_sms_termii(
         "channel": "generic",
         "api_key": termi_api_key,
     }
+    url = f"https://{base_url}/api/sms/send"
 
     headers = {
         "Content-Type": "application/json",
     }
 
-    response = requests.request("POST", base_url, headers=headers, json=payload)
-
+    response = requests.request("POST", url, headers=headers, json=payload)
 
     return response.json()
