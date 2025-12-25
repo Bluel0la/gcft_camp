@@ -65,7 +65,7 @@ def allocate_bed( db: Session, gender: str, payload ):
     eligible_halls = (
         db.query(Hall)
         .filter((Hall.gender == gender) | (Hall.hall_name == "Jerusalem Hall"))
-        .order_by(Hall.hall_name)
+        #.order_by(Hall.hall_name)
         .all()
     )
 
