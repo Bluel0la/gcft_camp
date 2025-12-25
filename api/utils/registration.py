@@ -37,7 +37,7 @@ async def register_user_service(
     image_url = None
 
     processed_bytes, content_type = clean_image(
-        file_bytes=file_bytes, content_type=file.content_type,
+        file_bytes=file_bytes,
         target_size=(512, 512), crop=True
     )
 
