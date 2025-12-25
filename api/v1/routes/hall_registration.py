@@ -69,7 +69,7 @@ async def register_user(
         number=number
     )
 
-    await send_sms_termii(
+    send_sms_termii(
         phone_number=number,
         name=new_user.first_name,
         arrival_date=new_user.arrival_date,
