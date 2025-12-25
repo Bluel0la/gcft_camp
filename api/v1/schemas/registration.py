@@ -103,6 +103,7 @@ class UserSummary(BaseModel):
     arrival_date: date
     extra_beds: Optional[list[str]] = None
     state: str
+    gender: str
 
 
     model_config = ConfigDict(from_attributes=True)
