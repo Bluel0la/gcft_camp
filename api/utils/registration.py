@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from api.v1.models.user import User
 from api.utils.bed_allocation import allocate_bed
 from api.utils.bed_allocation import gender_classifier
-from api.utils.file_upload import upload_to_s3, delete_from_s3
+from api.utils.file_upload import upload_to_s3, delete_from_s3, clean_image
 from PIL import Image
 import uuid
 from datetime import datetime
@@ -36,11 +36,16 @@ async def register_user_service(
 
     image_url = None
 
+    processed_bytes, content_type = clean_image(
+        file_bytes=file_bytes, content_type=file.content_type,
+        target_size=(512, 512), crop=True
+    )
+
     try:
         image_url = upload_to_s3(
-            file_bytes=file_bytes,
+            file_bytes=processed_bytes,
             object_key=object_key,
-            content_type=file.content_type
+            content_type=content_type,
         )
 
         new_user = User(

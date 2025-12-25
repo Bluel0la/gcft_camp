@@ -3,7 +3,8 @@ from dotenv import load_dotenv
 from botocore.exceptions import ClientError
 from datetime import date, timedelta, datetime
 from sqlalchemy.orm import Session
-
+from PIL import Image, ImageOps
+from io import BytesIO
 load_dotenv(".env")
 
 s3_client = boto3.client(
@@ -73,3 +74,51 @@ def delete_from_s3(object_key: str) -> None:
         Bucket=BUCKET_NAME,
         Key=object_key,
     )
+
+# Image Preprocessing function to resize images before upload
+def clean_image(file_bytes: bytes, 
+                target_size: tuple[int, int] = (512, 512), 
+                crop: bool = True,
+                output_format: str = "JPEG",
+                quality: int=95
+                ) -> tuple[bytes, str]:
+
+    """
+    Cleans, resizes, and optionally crops an image.
+
+    Args:
+        file_bytes (bytes): Raw image bytes.
+        target_size (tuple): Desired (width, height).
+        crop (bool): Whether to center-crop after resize.
+        output_format (str): Output format ('JPEG' or 'PNG').
+        quality (int): Compression quality (1–95 for JPEG).
+
+    Returns:
+        Tuple[bytes, str]: Processed image bytes and content type.
+    """
+    
+    # Load the image safely
+    image = Image.open(BytesIO(file_bytes))
+    image = ImageOps.exif_transpose(image)  # Correct orientation
+    image = image.convert("RGB")  # Ensure RGB format
+    
+    if crop:
+        image = ImageOps.fit(
+            image, target_size, 
+            method=Image.Resampling.LANCZOS,
+            centering=(0.5, 0.5)
+        )
+    else:
+        image.thumbnail(target_size, Image.Resampling.LANCZOS)
+        
+    #Re-encode the image
+    output_buffer = BytesIO()
+    image.save(
+        output_buffer,
+        format=output_format,
+        quality=quality,
+        optimize=True
+    )
+    
+    content_type = f"image/{output_format.lower()}"
+    return output_buffer.getvalue(), content_type
