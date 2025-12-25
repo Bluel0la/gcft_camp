@@ -11,8 +11,8 @@ from api.v1.models.phone_number import PhoneNumber
 from api.utils.message import send_sms_termii, send_sms_termii_whatsapp
 from api.utils.registration import register_user_service
 from api.v1.models.user import User
-from api.utils.file_upload import create_download_presigned_url
-
+from api.utils.file_upload import refresh_presigned_url_if_expired
+from datetime import datetime, timedelta, timezone
 registration_route = APIRouter(tags=["Hall Registration"])
 
 
@@ -123,10 +123,9 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
     floor = (
         db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
     )
-    
-    # Check if the users presigned url has expired
-     
-    
+
+    profile_picture_url = refresh_presigned_url_if_expired(user_record, db)
+
     return {
         "id": user_record.id,
         "first_name": user_record.first_name,
@@ -137,7 +136,7 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         "extra_beds": user_record.extra_beds or [],
         "phone_number": phone.phone_number,
         "active_status": user_record.active_status,
-        "profile_picture_url": user_record.profile_picture_url,
+        "profile_picture_url": profile_picture_url,
         "gender": user_record.gender,
         "children_names": user_record.names_children,
         "children_no": user_record.no_children,
@@ -146,7 +145,7 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         "Medical_issues": user_record.medical_issues,
         "status": user_record.active_status,
         "arrival_date": user_record.arrival_date,
-        "state": user_record.state
+        "state": user_record.state,
     }
 
 

@@ -3,19 +3,14 @@ from api.v1.models.hall import Hall
 from sqlalchemy.orm import Session
 from api.v1.models.floor import HallFloors
 from typing import Optional, List, Tuple
-from sqlalchemy import or_
+from sqlalchemy import or_, case, and_
 
-def beds_required(
-    no_children: Optional[int],
-    last_assigned_bed: int,
-    counter_value: int,
-    bunk_size: int = 2,
-) -> Tuple[List[str], int, int]:
+def beds_required( no_children: Optional[int], last_assigned_bed: int, counter_value: int, bunk_size: int = 2) -> Tuple[List[str], int, int]:
     """
     Returns allocated bed labels and updated counters.
 
     - Allocates 1 bed if children < 2
-    - Allocates 2 beds if children >= 2
+    - Allocates 4 beds if children >= 2
     """
 
     beds_needed = 4 if no_children is not None and no_children >= 2 else 1
@@ -36,9 +31,7 @@ def beds_required(
     return allocated_beds, last_assigned_bed, counter_value
 
 
-def floor_create_logic(
-    floor_no: int, hall_id: str, no_beds: Optional[int]
-) -> FloorCreateSchema:
+def floor_create_logic( floor_no: int, hall_id: str, no_beds: Optional[int] ) -> FloorCreateSchema:
     if no_beds is None:
         no_beds = 0
     return FloorCreateSchema(
@@ -68,11 +61,7 @@ def gender_classifier(category: str) -> str:
     return "unspecified"
 
 
-def allocate_bed(
-    db: Session,
-    gender: str,
-    payload,
-):
+def allocate_bed( db: Session, gender: str, payload ):
     eligible_halls = (
         db.query(Hall)
         .filter((Hall.gender == gender) | (Hall.hall_name == "Jerusalem Hall"))
@@ -86,25 +75,33 @@ def allocate_bed(
             .filter(
                 HallFloors.hall_id == hall.id,
                 HallFloors.status == "not-full",
-                or_(
-                    HallFloors.age_ranges.contains([payload.age_range]),
-                    HallFloors.age_ranges.is_(None),
-                    HallFloors.age_ranges == [],
+            ).order_by(
+                case(
+                    (
+                        and_(
+                            HallFloors.categories.any(category_name=payload.category),
+                            HallFloors.age_ranges.contains([payload.age_range]),
+                        ),
+                        0,
+                    ),
+                    (
+                        HallFloors.categories.any(category_name=payload.category),
+                        1,
+                    ),
+                    (
+                        HallFloors.age_ranges.contains([payload.age_range]),
+                        2,
+                    ),
+                    else_ =3,
                 ),
-                or_(
-                    HallFloors.categories.any(category_name=payload.category),
-                    ~HallFloors.categories.any(),
-                ),
+                HallFloors.floor_no,
             )
-            .order_by(HallFloors.floor_no)
             .with_for_update()
             .all()
         )
 
         for floor in floors:
             bunk_size = 2
-            floor.last_assigned_bed = floor.last_assigned_bed or 1
-            floor.counter_value = floor.counter_value or 0
 
             total_beds = floor.no_beds * bunk_size
             assigned = ((floor.last_assigned_bed - 1) * bunk_size) + floor.counter_value

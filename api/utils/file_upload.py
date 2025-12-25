@@ -1,6 +1,8 @@
 import boto3, os
 from dotenv import load_dotenv
 from botocore.exceptions import ClientError
+from datetime import date, timedelta, datetime
+from sqlalchemy.orm import Session
 
 load_dotenv(".env")
 
@@ -17,6 +19,20 @@ MAX_PRESIGNED_EXPIRATION = 604_800  # 7 days
 DEFAULT_EXPIRATION = min(
     int(os.getenv("PRESIGNED_URL_EXPIRATION", 600)), MAX_PRESIGNED_EXPIRATION
 )
+
+
+def refresh_presigned_url_if_expired(user_record, db: Session) -> str:
+    if date.today() - user_record.date_presigned_url_generated > timedelta(days=7):
+        user_record.date_presigned_url_generated = datetime.now
+        db.add(user_record)
+        db.commit()
+        db.refresh(user_record)
+
+        return create_download_presigned_url(
+            user_record.object_key, MAX_PRESIGNED_EXPIRATION
+        )
+
+    return user_record.profile_picture_url
 
 
 def create_download_presigned_url(
