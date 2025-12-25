@@ -9,7 +9,11 @@ from api.db.database import get_db
 from datetime import datetime
 from api.v1.models.phone_number import PhoneNumber
 from api.utils.message import send_sms_termii, send_sms_termii_whatsapp
-from api.utils.registration import register_user_service
+from api.utils.registration import (
+    register_user_service,
+    manual_register_user_service,
+    register_phone_number_manually,
+)
 from api.v1.models.user import User
 from api.utils.file_upload import refresh_presigned_url_if_expired
 from datetime import datetime, timedelta, timezone
@@ -69,7 +73,7 @@ async def register_user(
         number=number
     )
 
-    #send_sms_termii(
+    # send_sms_termii(
     #    phone_number=number,
     #    name=new_user.first_name,
     #    arrival_date=new_user.arrival_date,
@@ -77,10 +81,9 @@ async def register_user(
     #    floor=floor.floor_no,
     #    bed_no=new_user.bed_number,
     #    country=new_user.country,
-    #)
-    
+    # )
+
     floor_record = db.query(HallFloors).filter(HallFloors.floor_id == floor.floor_id).first()
-    
 
     return {
         "id": new_user.id,
@@ -99,6 +102,57 @@ async def register_user(
         "country": new_user.country,
         "state": new_user.state,
         "arrival_date": new_user.arrival_date
+    }
+
+
+@registration_route.post(
+    "/register-user-manual/{number_manual_register}",
+    response_model=UserDisplay,
+)
+async def register_user_manually(
+    number_manual_register: str,
+    number_late_comer: str,
+    payload: UserRegistration = Depends(UserRegistration.as_form),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+
+    register_phone_number_manually(phone_number=number_manual_register, db=db)
+
+    phone = (
+        db.query(PhoneNumber)
+        .filter(PhoneNumber.phone_number == number_manual_register)
+        .first()
+    )
+    if not phone:
+        raise HTTPException(404, "Phone number not found")
+
+    existing = db.query(User).filter(User.phone_number_id == phone.id).first()
+    if existing:
+        raise HTTPException(409, "User already registered")
+
+    new_user, floor = await manual_register_user_service(
+        db=db, payload=payload, phone=phone, file=file, number=number_manual_register, late_comers_number=number_late_comer
+    )
+
+
+    return {
+        "id": new_user.id,
+        "first_name": new_user.first_name,
+        "gender": new_user.gender,
+        "category": new_user.category,
+        "hall_name": new_user.hall_name,
+        "floor": f"Floor {floor}",
+        "bed_number": new_user.bed_number,
+        "extra_beds": new_user.extra_beds or [],
+        "phone_number": number_manual_register,
+        "active_status": new_user.active_status,
+        "profile_picture_url": new_user.profile_picture_url,
+        "age_range": new_user.age_range,
+        "marital_status": new_user.marital_status,
+        "country": new_user.country,
+        "state": new_user.state,
+        "arrival_date": new_user.arrival_date,
     }
 
 

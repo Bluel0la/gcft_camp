@@ -4,15 +4,11 @@ from sqlalchemy.orm import Session
 from api.v1.models.floor import HallFloors
 from typing import Optional, List, Tuple
 from sqlalchemy import case, and_
-from dotenv import load_dotenv
 from api.v1.models.floor import HallFloors
 from api.v1.models.user import User
-import os
-
-load_dotenv(".env")
-camp_start_date = os.getenv("START_DATE")
-camp_end_date = os.getenv("END_DATE")
-
+from api.v1.models.phone_number import PhoneNumber
+from fastapi import HTTPException
+from typing import Tuple, List
 
 
 
@@ -72,11 +68,38 @@ def gender_classifier(category: str) -> str:
     return "unspecified"
 
 
+def fetch_user_information_for_reallocation(db: Session,late_comers_number: str, no_children: int ) -> Tuple[str, str, List[str]]:
+    phone = (
+        db.query(PhoneNumber)
+        .filter(PhoneNumber.phone_number == late_comers_number)
+        .first()
+    )
+    if not phone:
+        raise HTTPException(status_code=404, detail="Phone number not found.")
+
+    user_record = db.query(User).filter(User.phone_number_id == phone.id).first()
+    if not user_record:
+        raise HTTPException(
+            status_code=404, detail="No user registered with this number."
+        )
+    
+    beds: List[str] = [user_record.bed_number]
+    
+    #Include extra beds only if no_children is > 2
+    if no_children > 2 and user_record.extra_beds:
+        beds.extend(user_record.extra_beds)
+        
+    return(
+        user_record.hall_name,
+        user_record.floor,
+        beds,
+    )
+
+
 def allocate_bed( db: Session, gender: str, payload ):
     eligible_halls = (
         db.query(Hall)
         .filter((Hall.gender == gender) | (Hall.hall_name == "Jerusalem Hall"))
-        #.order_by(Hall.hall_name)
         .all()
     )
 
@@ -86,23 +109,19 @@ def allocate_bed( db: Session, gender: str, payload ):
             .filter(
                 HallFloors.hall_id == hall.id,
                 HallFloors.status == "not-full",
-            ).order_by(
-                case(
-                    (
-                        and_(
-                            HallFloors.categories.any(category_name=payload.category),
-                            HallFloors.age_ranges.contains([payload.age_range]),
-                        ),
-                        0,
-                    ),
-                    else_ =1,
+
+                # STRICT conditions
+                HallFloors.categories.any(
+                    category_name=payload.category
                 ),
-                HallFloors.floor_no,
+                HallFloors.age_ranges.contains(
+                    [payload.age_range]
+                ),
             )
+            .order_by(HallFloors.floor_no)
             .with_for_update()
             .all()
-        )
-
+            )
         for floor in floors:
             bunk_size = 2
 
@@ -128,66 +147,25 @@ def allocate_bed( db: Session, gender: str, payload ):
     return None, None, None
 
 
-def retrieve_first_late_comer(floor: HallFloors, db: Session) -> Optional[User]:
-    # extraction all users associated with a floor first
-    users_on_floor = (
-        db.query(User)
-        .filter()
+# function to update a users information
+def update_lateuser_information(db: Session, phone: str):
+    phone_record = (
+        db.query(PhoneNumber)
+        .filter(PhoneNumber.phone_number == phone)
+        .first()
     )
-     
-
-
-def manual_allocate_bed( db: Session, gender: str, payload ):
-    eligible_halls = (
-        db.query(Hall)
-        .filter((Hall.gender == gender) | (Hall.hall_name == "Jerusalem Hall"))
-        #.order_by(Hall.hall_name)
-        .all()
-    )
-
-    for hall in eligible_halls:
-        floors = (
-            db.query(HallFloors)
-            .filter(
-                HallFloors.hall_id == hall.id,
-                HallFloors.status == "not-full",
-            ).order_by(
-                case(
-                    (
-                        and_(
-                            HallFloors.categories.any(category_name=payload.category),
-                            HallFloors.age_ranges.contains([payload.age_range]),
-                        ),
-                        0,
-                    ),
-                    else_ =1,
-                ),
-                HallFloors.floor_no,
-            )
-            .with_for_update()
-            .all()
+    
+    if not phone_record:
+        raise HTTPException(status_code=404, detail="Phone number not found.")
+    
+    user_record = db.query(User).filter(User.phone_number_id == phone_record.id).first()
+    if not user_record:
+        raise HTTPException(
+            status_code=404, detail="No user registered with this number."
         )
-
-        for floor in floors:
-            bunk_size = 2
-
-            total_beds = floor.no_beds * bunk_size
-            assigned = ((floor.last_assigned_bed - 1) * bunk_size) + floor.counter_value
-
-            if assigned < total_beds:
-                beds, next_bed, next_counter = beds_required(
-                    payload.no_children,
-                    floor.last_assigned_bed,
-                    floor.counter_value,
-                    bunk_size,
-                )
-
-                floor.last_assigned_bed = next_bed
-                floor.counter_value = next_counter
-
-                if (((next_bed - 1) * bunk_size) + next_counter) >= total_beds:
-                    floor.status = "full"
-
-                return hall, floor, beds
-
-    return None, None, None
+    
+    # delete the users record
+    db.delete(user_record)
+    db.delete(phone_record)
+    db.commit()
+    
