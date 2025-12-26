@@ -151,6 +151,60 @@ def allocate_bed(db: Session, gender: str, payload):
 
     return None, None, None
 
+
+def allocate_backup_bed(db: Session, gender: str, payload):
+    eligible_halls = (
+        db.query(Hall)
+        .filter((Hall.gender == gender) | (Hall.hall_name == "Jerusalem Hall"))
+        .all()
+    )
+
+    for hall in eligible_halls:
+        floors = (
+            db.query(HallFloors)
+            .filter(
+                HallFloors.hall_id == hall.id,
+                HallFloors.status == "not-full",
+                HallFloors.categories.any(category_name=payload.category),
+                HallFloors.age_ranges.contains([payload.age_range]),
+            )
+            .order_by(HallFloors.floor_no)
+            .with_for_update()
+            .all()
+        )
+
+        for floor in floors:
+            max_child_slots = floor.no_beds
+            if max_child_slots <= 0:
+                continue
+
+            # Lock users implicitly by querying under the same transaction
+            #Filter users on the floor to get occupied child slots
+            occupied_slots = {
+                user.bed_number
+                for user in (
+                    db.query(User).filter(
+                        User.floor == floor.floor_id,
+                        User.bed_number.ilike("%c"),
+                    ).with_for_update().all()
+                )
+            }
+            
+            all_slots = [f"{i}c" for i in range(1, max_child_slots + 1)]
+            available_slots = [slot for slot in all_slots if slot not in occupied_slots]
+
+            if not available_slots:
+                floor.status = "full"
+                continue
+
+            # Allocate lowest available child slot
+            assigned_slot = available_slots[0]
+
+            return hall, floor, [assigned_slot]
+
+    return None, None, None
+
+
 # function to update a users information
 def update_lateuser_information(db: Session, phone: str):
     phone_record = (

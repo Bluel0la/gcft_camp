@@ -1,4 +1,4 @@
-from api.utils.user_registration import register_user_service, manual_register_user_service, register_phone_number_manually
+from api.utils.user_registration import register_user_service, manual_register_user_service, register_phone_number_manually, backup_user_service
 from api.v1.schemas.registration import UserDisplay, UserRegistration, UserSummary, UserView
 from api.v1.schemas.phone_registration import PhoneNumberRegistration, PhoneNumberView
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
@@ -147,6 +147,53 @@ async def register_user_manually(
 
 # Register a user using backup Spaces
 @registration_route.post("/register-user-backup/{phone_number}", response_model=UserDisplay)
+async def backup_register(
+    phone_number: str,
+    payload: UserRegistration = Depends(UserRegistration.as_form),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    register_phone_number_manually(phone_number=phone_number, db=db)
+
+    phone = (
+        db.query(PhoneNumber).filter(PhoneNumber.phone_number == phone_number).first()
+    )
+    if not phone:
+        raise HTTPException(404, "Phone number not found")
+
+    existing = db.query(User).filter(User.phone_number_id == phone.id).first()
+    if existing:
+        raise HTTPException(409, "User already registered")
+
+    new_user, floor = await backup_user_service(
+        db=db,
+        payload=payload,
+        phone=phone,
+        file=file,
+        number=phone_number
+    )
+    floor_record = (
+        db.query(HallFloors).filter(HallFloors.floor_id == floor.floor_id).first()
+    )
+
+    return {
+        "id": new_user.id,
+        "first_name": new_user.first_name,
+        "gender": new_user.gender,
+        "category": new_user.category,
+        "hall_name": new_user.hall_name,
+        "floor": "Triple A Games are ass.....",  # f"Floor {floor_record.floor_no}",
+        "bed_number": new_user.bed_number,
+        "extra_beds": new_user.extra_beds or [],
+        "phone_number": phone_number,
+        "active_status": new_user.active_status,
+        "profile_picture_url": new_user.profile_picture_url,
+        "age_range": new_user.age_range,
+        "marital_status": new_user.marital_status,
+        "country": new_user.country,
+        "state": new_user.state,
+        "arrival_date": new_user.arrival_date,
+    }
 
 
 # Get a registered user by phone number

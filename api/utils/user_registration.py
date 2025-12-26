@@ -1,6 +1,6 @@
 from api.utils.bed_allocation import allocate_bed, fetch_user_information_for_reallocation, update_lateuser_information
 from api.utils.file_upload import process_and_upload_image, delete_from_s3
-from api.utils.bed_allocation import validate_gender
+from api.utils.bed_allocation import validate_gender, allocate_backup_bed
 from api.v1.models.phone_number import PhoneNumber
 from api.v1.models.user import User
 from sqlalchemy.orm import Session
@@ -118,6 +118,45 @@ async def manual_register_user_service(
         )
 
         update_lateuser_information(db, late_comers_number)
+        return user, floor
+
+    except Exception:
+        db.rollback()
+        if object_key:
+            delete_from_s3(object_key)
+        raise
+
+async def backup_user_service(
+    db: Session,
+    payload,
+    phone, file, number
+):
+    gender = validate_gender(payload.category)
+    hall, floor, beds = allocate_backup_bed(db, gender, payload)
+    if not hall:
+        raise HTTPException(
+            status_code=400,
+            detail="All eligible halls are full for backup allocation.",
+        )
+        
+    object_key = None
+    try:
+        image_url, object_key = await process_and_upload_image(
+            file, payload.first_name, number
+        )
+
+        user = persist_user(
+            db=db,
+            payload=payload,
+            phone=phone,
+            hall=hall,
+            floor_id=floor.floor_id,
+            beds=beds,
+            gender=gender,
+            image_url=image_url,
+            object_key=object_key,
+        )
+
         return user, floor
 
     except Exception:
