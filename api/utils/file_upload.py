@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from PIL import Image, ImageOps
 from dotenv import load_dotenv
 from io import BytesIO
-import boto3, os
+import boto3, os, uuid
 
 load_dotenv(".env")
 
@@ -97,12 +97,12 @@ def clean_image(file_bytes: bytes,
     Returns:
         Tuple[bytes, str]: Processed image bytes and content type.
     """
-    
+
     # Load the image safely
     image = Image.open(BytesIO(file_bytes))
     image = ImageOps.exif_transpose(image)  # Correct orientation
     image = image.convert("RGB")  # Ensure RGB format
-    
+
     if crop:
         image = ImageOps.fit(
             image, target_size, 
@@ -111,8 +111,8 @@ def clean_image(file_bytes: bytes,
         )
     else:
         image.thumbnail(target_size, Image.Resampling.LANCZOS)
-        
-    #Re-encode the image
+
+    # Re-encode the image
     output_buffer = BytesIO()
     image.save(
         output_buffer,
@@ -120,6 +120,31 @@ def clean_image(file_bytes: bytes,
         quality=quality,
         optimize=True
     )
-    
+
     content_type = f"image/{output_format.lower()}"
     return output_buffer.getvalue(), content_type
+
+
+async def process_and_upload_image(
+    file, first_name: str, number: str
+) -> tuple[str, str]:
+    ext = file.filename.rsplit(".", 1)[-1]
+    safe_name = first_name.lower().replace(" ", "_")
+    unique_name = f"{safe_name}_{uuid.uuid4().hex}.{ext}"
+
+    object_key = f"users/{number}/{unique_name}"
+    raw_bytes = await file.read()
+
+    processed_bytes, content_type = clean_image(
+        file_bytes=raw_bytes,
+        target_size=(512, 512),
+        crop=True,
+    )
+
+    image_url = upload_to_s3(
+        file_bytes=processed_bytes,
+        object_key=object_key,
+        content_type=content_type,
+    )
+
+    return image_url, object_key

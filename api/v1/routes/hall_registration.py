@@ -145,6 +145,10 @@ async def register_user_manually(
         "arrival_date": new_user.arrival_date,
     }
 
+# Register a user using backup Spaces
+@registration_route.post("/register-user-backup/{phone_number}", response_model=UserDisplay)
+
+
 # Get a registered user by phone number
 @registration_route.get("/user/{number}", response_model=UserSummary)
 def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):

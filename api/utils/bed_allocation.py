@@ -9,7 +9,12 @@ from fastapi import HTTPException
 from sqlalchemy import case, and_
 
 
-def beds_required( no_children: Optional[int], last_assigned_bed: int, counter_value: int, bunk_size: int = 2) -> Tuple[List[str], int, int]:
+def beds_required(
+    no_children: Optional[int],
+    last_assigned_bed: int,
+    counter_value: int,
+    bunk_size: int = 2,
+) -> Tuple[List[str], int, int]:
     """
     Returns allocated bed labels and updated counters.
 
@@ -35,14 +40,12 @@ def beds_required( no_children: Optional[int], last_assigned_bed: int, counter_v
     return allocated_beds, last_assigned_bed, counter_value
 
 
-def floor_create_logic( floor_no: int, hall_id: str, no_beds: Optional[int] ) -> FloorCreateSchema:
+def floor_create_logic(
+    floor_no: int, hall_id: str, no_beds: Optional[int]
+) -> FloorCreateSchema:
     if no_beds is None:
         no_beds = 0
-    return FloorCreateSchema(
-        floor_no=floor_no,
-        hall_id=hall_id,
-        no_beds=no_beds
-    )
+    return FloorCreateSchema(floor_no=floor_no, hall_id=hall_id, no_beds=no_beds)
 
 
 def gender_classifier(category: str) -> str:
@@ -52,10 +55,7 @@ def gender_classifier(category: str) -> str:
     """
 
     category_lower = category.lower()
-    if any(
-        keyword in category_lower
-        for keyword in ["brother", "brothers", "male"]
-    ):
+    if any(keyword in category_lower for keyword in ["brother", "brothers", "male"]):
         return "male"
     elif any(
         keyword in category_lower
@@ -65,7 +65,19 @@ def gender_classifier(category: str) -> str:
     return "unspecified"
 
 
-def fetch_user_information_for_reallocation(db: Session,late_comers_number: str, no_children: int ) -> Tuple[str, str, List[str]]:
+def validate_gender(category: str) -> str:
+    gender = gender_classifier(category)
+    if gender not in {"male", "female"}:
+        raise HTTPException(status_code=400, detail="Invalid gender classification")
+    return gender
+
+
+def fetch_user_information_for_reallocation(
+    db: Session,
+    late_comers_number: str,
+    no_children: int,
+) -> Tuple[Hall, HallFloors, List[str]]:
+
     phone = (
         db.query(PhoneNumber)
         .filter(PhoneNumber.phone_number == late_comers_number)
@@ -77,23 +89,24 @@ def fetch_user_information_for_reallocation(db: Session,late_comers_number: str,
     user_record = db.query(User).filter(User.phone_number_id == phone.id).first()
     if not user_record:
         raise HTTPException(
-            status_code=404, detail="No user registered with this number."
+            status_code=404,
+            detail="No user registered with this number.",
         )
-    
+
     beds: List[str] = [user_record.bed_number]
-    
-    #Include extra beds only if no_children is > 2
+
+    # Include extra beds only if no_children > 2
     if no_children > 2 and user_record.extra_beds:
         beds.extend(user_record.extra_beds)
-        
-    return(
-        user_record.hall_name,
+
+    return (
+        user_record.hall,
         user_record.floor,
         beds,
     )
 
 
-def allocate_bed( db: Session, gender: str, payload ):
+def allocate_bed(db: Session, gender: str, payload):
     eligible_halls = (
         db.query(Hall)
         .filter((Hall.gender == gender) | (Hall.hall_name == "Jerusalem Hall"))
@@ -106,19 +119,14 @@ def allocate_bed( db: Session, gender: str, payload ):
             .filter(
                 HallFloors.hall_id == hall.id,
                 HallFloors.status == "not-full",
-
                 # STRICT conditions
-                HallFloors.categories.any(
-                    category_name=payload.category
-                ),
-                HallFloors.age_ranges.contains(
-                    [payload.age_range]
-                ),
+                HallFloors.categories.any(category_name=payload.category),
+                HallFloors.age_ranges.contains([payload.age_range]),
             )
             .order_by(HallFloors.floor_no)
             .with_for_update()
             .all()
-            )
+        )
         for floor in floors:
             bunk_size = 2
 
@@ -142,7 +150,6 @@ def allocate_bed( db: Session, gender: str, payload ):
                 return hall, floor, beds
 
     return None, None, None
-
 
 # function to update a users information
 def update_lateuser_information(db: Session, phone: str):
