@@ -1,15 +1,12 @@
 from api.v1.schemas.floor_management import FloorCreateSchema
-from api.v1.models.hall import Hall
-from sqlalchemy.orm import Session
+from api.v1.models.phone_number import PhoneNumber
 from api.v1.models.floor import HallFloors
 from typing import Optional, List, Tuple
-from sqlalchemy import case, and_
-from api.v1.models.floor import HallFloors
 from api.v1.models.user import User
-from api.v1.models.phone_number import PhoneNumber
+from api.v1.models.hall import Hall
+from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from typing import Tuple, List
-
+from sqlalchemy import case, and_
 
 
 def beds_required( no_children: Optional[int], last_assigned_bed: int, counter_value: int, bunk_size: int = 2) -> Tuple[List[str], int, int]:
@@ -168,4 +165,3 @@ def update_lateuser_information(db: Session, phone: str):
     db.delete(user_record)
     db.delete(phone_record)
     db.commit()
-    

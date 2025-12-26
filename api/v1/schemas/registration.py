@@ -1,9 +1,9 @@
 from pydantic import BaseModel, ConfigDict, Field
-from enum import Enum
 from typing import Optional
 from datetime import date
 from fastapi import Form
-from uuid import UUID
+from enum import Enum
+
 class AgeRangeEnum(str, Enum):
     age_10_17 = "10-17"
     age_18_25 = "18-25"

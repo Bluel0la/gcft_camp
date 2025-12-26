@@ -1,25 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from sqlalchemy.orm import Session
-from api.v1.schemas.phone_registration import PhoneNumberRegistration, PhoneNumberView
+from api.utils.user_registration import register_user_service, manual_register_user_service, register_phone_number_manually
 from api.v1.schemas.registration import UserDisplay, UserRegistration, UserSummary, UserView
+from api.v1.schemas.phone_registration import PhoneNumberRegistration, PhoneNumberView
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from api.utils.file_upload import refresh_presigned_url_if_expired
 from api.v1.services.full_halls import send_hall_full_email
+from api.v1.models.phone_number import PhoneNumber
+from api.utils.message import send_sms_termii
 from api.v1.models import phone_number, user
 from api.v1.models.floor import HallFloors
+from api.v1.models.user import User
+from sqlalchemy.orm import Session
 from api.db.database import get_db
 from datetime import datetime
-from api.v1.models.phone_number import PhoneNumber
-from api.utils.message import send_sms_termii, send_sms_termii_whatsapp
-from api.utils.registration import (
-    register_user_service,
-    manual_register_user_service,
-    register_phone_number_manually,
-)
-from api.v1.models.user import User
-from api.utils.file_upload import refresh_presigned_url_if_expired
-from datetime import datetime, timedelta, timezone
+
 registration_route = APIRouter(tags=["Hall Registration"])
 
-
+# Register a User's Phone Number
 @registration_route.post("/register-number", response_model=PhoneNumberView)
 def register_phone_number(
     payload: PhoneNumberRegistration, db: Session = Depends(get_db)
@@ -46,11 +42,8 @@ def register_phone_number(
     db.refresh(phone)
     return phone
 
-
-@registration_route.post(
-    "/register-user/{number}",
-    response_model=UserDisplay,
-)
+# Register a User
+@registration_route.post( "/register-user/{number}",response_model=UserDisplay)
 async def register_user(
     number: str,
     payload: UserRegistration = Depends(UserRegistration.as_form),
@@ -104,11 +97,8 @@ async def register_user(
         "arrival_date": new_user.arrival_date
     }
 
-
-@registration_route.post(
-    "/register-user-manual/{number_manual_register}",
-    response_model=UserDisplay,
-)
+# Register a User Manually by allocating them another's bed space
+@registration_route.post("/register-user-manual/{number_manual_register}", response_model=UserDisplay)
 async def register_user_manually(
     number_manual_register: str,
     number_late_comer: str,
@@ -155,7 +145,7 @@ async def register_user_manually(
         "arrival_date": new_user.arrival_date,
     }
 
-
+# Get a registered user by phone number
 @registration_route.get("/user/{number}", response_model=UserSummary)
 def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
     phone = (
@@ -202,7 +192,7 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         "state": user_record.state,
     }
 
-
+# Return all users
 @registration_route.get("/users", response_model=list[UserSummary])
 def get_all_users(db: Session = Depends(get_db)):
     users = db.query(user.User).all()
@@ -324,7 +314,3 @@ def get_active_users(db: Session = Depends(get_db)):
         )
         for user in users
     ]
-
-# Endpoint to manually allocate a bed to a user
-# @registration_route.post("/allocate-bed/{user_id}", response_model=UserView)
-# def allocate_bed_to_user(user_id:int, db: Session = Depends(get_db)):

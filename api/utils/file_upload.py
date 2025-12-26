@@ -1,10 +1,11 @@
-import boto3, os
-from dotenv import load_dotenv
-from botocore.exceptions import ClientError
 from datetime import date, timedelta, datetime
+from botocore.exceptions import ClientError
 from sqlalchemy.orm import Session
 from PIL import Image, ImageOps
+from dotenv import load_dotenv
 from io import BytesIO
+import boto3, os
+
 load_dotenv(".env")
 
 s3_client = boto3.client(

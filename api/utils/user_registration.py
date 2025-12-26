@@ -1,20 +1,15 @@
-from fastapi import HTTPException
-from sqlalchemy.orm import Session
-from api.v1.models.user import User
 from api.utils.bed_allocation import allocate_bed, fetch_user_information_for_reallocation, update_lateuser_information
-from api.utils.bed_allocation import gender_classifier
 from api.utils.file_upload import upload_to_s3, delete_from_s3, clean_image
-import uuid
-from datetime import datetime
+from api.utils.bed_allocation import gender_classifier
 from api.v1.models.phone_number import PhoneNumber
+from api.v1.models.user import User
+from sqlalchemy.orm import Session
+from fastapi import HTTPException
+from datetime import datetime
+import uuid
 
-async def register_user_service(
-    db: Session,
-    payload,
-    phone,
-    file,
-    number
-):
+
+async def register_user_service( db: Session, payload, phone, file, number ):
     gender = gender_classifier(payload.category)
     if gender not in {"male", "female"}:
         raise HTTPException(400, "Invalid gender classification")
@@ -158,9 +153,7 @@ async def manual_register_user_service(db: Session, payload, phone, file, number
         raise
 
 
-def register_phone_number_manually(
-    phone_number, db
-):
+def register_phone_number_manually(phone_number, db):
     phone = PhoneNumber(
         phone_number=phone_number,
         time_registered=datetime.utcnow(),

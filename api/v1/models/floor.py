@@ -1,8 +1,7 @@
 from sqlalchemy import Table, Column, Integer, ForeignKey, Enum, String
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
 from api.db.database import Base
-from sqlalchemy.dialects.postgresql import ARRAY
 
 # Association table for many-to-many relationship
 floor_category_association = Table(

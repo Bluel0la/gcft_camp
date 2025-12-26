@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from api.v1.schemas.category_registration import CategoryCreate, CategoryView
+from fastapi import APIRouter, Depends, HTTPException, status
 from api.v1.models.category import Category
-from sqlalchemy import func
 from api.db.database import get_db
+from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 
 category_route = APIRouter(prefix="/category", tags=["Category Allocation"])
@@ -36,6 +36,7 @@ def create_category(
 
     return new_category
 
+# Get All the Categories
 @category_route.get("/", response_model=list[CategoryView])
 def get_all_categories(
     db: Session = Depends(get_db)):
@@ -43,6 +44,7 @@ def get_all_categories(
     categories = db.query(Category).all()
     return categories
 
+# Delete a Category by ID
 @category_route.delete("/{category_id}", status_code=204)
 def delete_category(
     category_id: int, db: Session = Depends(get_db)
@@ -55,7 +57,7 @@ def delete_category(
     db.commit()
     return
 
-
+# Get a Category by ID
 @category_route.get("/{category_id}", response_model=CategoryView)
 def get_category_by_id(
     category_id: int, db: Session = Depends(get_db)
