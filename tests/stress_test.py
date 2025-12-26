@@ -17,5 +17,5 @@ def gender_classifier(category: str) -> str:
         return "male"
     return "unspecified"
 
-result = gender_classifier("married female")
+result = gender_classifier("Teens Below 18 (female)")
 print(result)

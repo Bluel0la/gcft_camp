@@ -1,16 +1,8 @@
 from pydantic import BaseModel
-from typing import List, Dict
-
-
-
-class HallAnalytics(BaseModel):
-    hall_name: str
-    no_floors: int
-    total_beds: int
-    booked_beds: int
-    free_beds: int
-    verified_users: int
-
-
 class UserCount(BaseModel):
     total_users: int
+    
+class UsersMedicalConditions(BaseModel):
+    user_name: str
+    phone_number: str
+    medical_condition: str

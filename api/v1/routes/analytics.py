@@ -1,5 +1,5 @@
-from api.v1.schemas.analytics import UserCount, HallAnalytics
-from fastapi.responses import StreamingResponse
+from api.v1.schemas.analytics import UserCount, UsersMedicalConditions
+from api.v1.models.phone_number import PhoneNumber
 from api.v1.models.floor import HallFloors
 from fastapi import HTTPException, status
 from fastapi import APIRouter, Depends
@@ -8,9 +8,6 @@ from api.v1.models.user import User
 from sqlalchemy.orm import Session
 from api.db.database import get_db
 from sqlalchemy import func
-from typing import List
-import pandas as pd
-import io
 
 analytics_route = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -72,3 +69,32 @@ def get_hall_statistics(hall_name: str, db: Session = Depends(get_db)):
         ]
         
     }
+
+# Endpoint to get users with medical conditions
+@analytics_route.get("/users-medical-conditions", response_model=list[UsersMedicalConditions])
+def get_users_with_medical_conditions(db: Session = Depends(get_db)):
+    users= db.query(User).filter(
+        User.medical_issues != None
+    ).all()
+    if not users:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No users with medical conditions found"
+        )
+    # Get the users phone number
+    for user in users:
+        phone_number = db.query(PhoneNumber).filter(
+            PhoneNumber.id == user.phone_number_id).first()
+    
+    phone_number.phone_number
+        
+        
+    result = [
+        UsersMedicalConditions(
+            user_name=user.first_name,
+            phone_number=phone_number.phone_number,
+            medical_condition=user.medical_issues
+        )
+        for user in users
+    ]
+    return result
