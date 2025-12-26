@@ -1,13 +1,13 @@
-import io
-import pandas as pd
+from api.v1.schemas.analytics import HallAnalytics, CategoryAnalytics, UserCount
+from api.v1.models import hall, category, user, phone_number
+from fastapi.responses import StreamingResponse
+from api.v1.models.floor import HallFloors
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from api.db.database import get_db
 from typing import List
-from api.v1.models import hall, category, user, phone_number
-from api.v1.schemas.analytics import HallAnalytics, CategoryAnalytics, UserCount
-from fastapi.responses import StreamingResponse
-from api.v1.models.floor import HallFloors
+import pandas as pd
+import io
 
 analytics_route = APIRouter(prefix="/analytics", tags=["Analytics"])
 

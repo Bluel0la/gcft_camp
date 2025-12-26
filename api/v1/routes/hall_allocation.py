@@ -123,6 +123,7 @@ def view_floors_hall(
                 categories=[cat.id for cat in floor.categories] if floor.categories else [],
                 no_beds=floor.no_beds,
                 status=floor.status,
+                age_ranges=floor.age_ranges
             )
         )
     return result
