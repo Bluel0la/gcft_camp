@@ -138,7 +138,7 @@ async def backup_user_service(
             status_code=400,
             detail="All eligible halls are full for backup allocation.",
         )
-        
+    payload.active_status = "active"
     object_key = None
     try:
         image_url, object_key = await process_and_upload_image(
