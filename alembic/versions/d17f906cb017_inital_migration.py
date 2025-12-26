@@ -1,8 +1,8 @@
-"""Initial Migrations
+"""Inital Migration
 
-Revision ID: ded00673d83e
+Revision ID: d17f906cb017
 Revises: 
-Create Date: 2025-12-15 20:06:41.805071
+Create Date: 2025-12-26 18:58:45.537799
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'ded00673d83e'
+revision: str = 'd17f906cb017'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -89,13 +89,14 @@ def upgrade() -> None:
     sa.Column('category', sa.String(), nullable=False),
     sa.Column('first_name', sa.String(), nullable=False),
     sa.Column('gender', sa.String(), nullable=False),
-    sa.Column('age_range', sa.Enum('10-17', '18-25', '26-35', '36-45', '45-55', '56-65', '66-70', '71+', name='age_range_enum'), nullable=False),
+    sa.Column('age_range', sa.Enum('10-17', '18-25', '26-35', '36-45', '46-55', '56-65', '66-70', '71+', name='age_range_enum'), nullable=False),
     sa.Column('marital_status', sa.String(), nullable=False),
     sa.Column('no_children', sa.Integer(), nullable=True),
     sa.Column('names_children', sa.String(), nullable=True),
     sa.Column('country', sa.String(), nullable=False),
     sa.Column('state', sa.String(), nullable=False),
     sa.Column('arrival_date', sa.Date(), nullable=False),
+    sa.Column('date_verified', sa.Date(), nullable=True),
     sa.Column('medical_issues', sa.String(), nullable=True),
     sa.Column('local_assembly', sa.String(), nullable=True),
     sa.Column('local_assembly_address', sa.String(), nullable=True),
@@ -103,11 +104,15 @@ def upgrade() -> None:
     sa.Column('floor', sa.UUID(), nullable=True),
     sa.Column('bed_number', sa.String(), nullable=True),
     sa.Column('extra_beds', sa.JSON(), nullable=True),
-    sa.Column('active_status', sa.Enum('active', 'inactive', name='active_status_enum'), nullable=False),
+    sa.Column('profile_picture_url', sa.String(), nullable=True),
+    sa.Column('object_key', sa.String(), nullable=False),
+    sa.Column('date_presigned_url_generated', sa.Date(), nullable=False),
+    sa.Column('active_status', sa.Enum('active', 'inactive', 'relocated', name='active_status_enum'), nullable=False),
     sa.ForeignKeyConstraint(['floor'], ['hall_floors.floor_id'], ),
     sa.ForeignKeyConstraint(['hall_name'], ['halls.hall_name'], ),
     sa.ForeignKeyConstraint(['phone_number_id'], ['phone_numbers.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('object_key')
     )
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
     # ### end Alembic commands ###
