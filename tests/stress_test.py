@@ -1,18 +1,21 @@
+import re
+
+
 def gender_classifier(category: str) -> str:
     """
-    Checks the users category to see if it contains words like brothers, brother, male, female, sisters, mothers
-    and if it does return the appropriate gender either male or female
+    Classifies gender based on whole-word matches in a category string.
     """
 
     category_lower = category.lower()
-    if any(keyword in category_lower for keyword in ["brother", "brothers", "male"]):
-        return "male"
-    elif any(
-        keyword in category_lower
-        for keyword in ["sister", "sisters", "mother", "mothers", "female"]
-    ):
+
+    male_pattern = r"\b(brother|brothers|male)\b"
+    female_pattern = r"\b(sister|sisters|mother|mothers|female)\b"
+
+    if re.search(female_pattern, category_lower):
         return "female"
+    elif re.search(male_pattern, category_lower):
+        return "male"
     return "unspecified"
 
-result = gender_classifier("Married (female)")
+result = gender_classifier("married female")
 print(result)
