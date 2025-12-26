@@ -59,7 +59,7 @@ def gender_classifier(category: str) -> str:
         return "male"
     elif any(
         keyword in category_lower
-        for keyword in ["sister", "sisters", "mother", "mothers", "female"]
+        for keyword in ["sister", "sisters", "mother", "mothers", "female", "(female)"]
     ):
         return "female"
     return "unspecified"
