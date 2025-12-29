@@ -3,7 +3,6 @@ from api.v1.schemas.registration import UserDisplay, UserRegistration, UserSumma
 from api.v1.schemas.phone_registration import PhoneNumberRegistration, PhoneNumberView
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from api.utils.file_upload import refresh_presigned_url_if_expired
-from api.v1.services.full_halls import send_hall_full_email
 from api.v1.models.phone_number import PhoneNumber
 from api.utils.message import send_sms_termii
 from api.v1.models import phone_number, user

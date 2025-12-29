@@ -113,7 +113,7 @@ def allocate_bed(db: Session, gender: str, payload):
         .filter((Hall.gender == gender) | (Hall.hall_name == "Jerusalem Hall"))
         .all()
     )
-
+    last_hall = None
     for hall in eligible_halls:
         floors = (
             db.query(HallFloors)
@@ -150,7 +150,7 @@ def allocate_bed(db: Session, gender: str, payload):
 
                 return hall, floor, beds
 
-    return None, None, None
+    return None, last_hall, None
 
 
 def allocate_backup_bed(db: Session, gender: str, payload):
@@ -213,17 +213,42 @@ def update_lateuser_information(db: Session, phone: str):
         .filter(PhoneNumber.phone_number == phone)
         .first()
     )
-    
+
     if not phone_record:
         raise HTTPException(status_code=404, detail="Phone number not found.")
-    
+
     user_record = db.query(User).filter(User.phone_number_id == phone_record.id).first()
     if not user_record:
         raise HTTPException(
             status_code=404, detail="No user registered with this number."
         )
-    
+
     # delete the users record
     db.delete(user_record)
     db.delete(phone_record)
     db.commit()
+
+
+def compute_hall_statistics(db: Session, hall: Hall) -> dict:
+    floors = db.query(HallFloors).filter(HallFloors.hall_id == hall.id).all()
+
+    total_beds = sum(floor.no_beds for floor in floors)
+
+    all_users_count = 0
+    active_users_count = 0
+
+    for floor in floors:
+        all_users_count += db.query(User).filter(User.floor == floor.floor_id).count()
+
+        active_users_count += (
+            db.query(User)
+            .filter(User.floor == floor.floor_id, User.active_status == "active")
+            .count()
+        )
+
+    return {
+        "total_beds": total_beds,
+        "all_users_count": all_users_count,
+        "active_users_count": active_users_count,
+        "remaining_space": total_beds - all_users_count,
+    }
