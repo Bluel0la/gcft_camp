@@ -74,6 +74,7 @@ async def add_image_to_category(
     new_image = Image(
         image_name=image_name or unique_name,
         image_url=image_url,
+        object_key=object_key,
         category_id=category_id,
         status="in-use",
     )
@@ -124,14 +125,46 @@ def delete_image(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Image not found.",
+        )        
+    object_key = image.object_key
+    # Delete the image from the database
+    delete_from_s3(object_key)
+    db.delete(image)
+    db.commit()
+
+@images_route.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_image_category(
+    category_id: int, db: Session = Depends(get_db)
+):
+    #Check if the image category exits
+    category = db.query(ImageCategory).filter(
+        category_id = ImageCategory.id
+    ).first()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="The category doesn't exist"
         )
         
-    # Fetch the images Category
-    category_name = db.query(ImageCategory).filter_by(id=image.category_id).first()
+    #Identify all images with that category id
+    images = db.query(Image).filter(
+        Image.category_id == category_id
+    ).all()
     
-    # Delete the image from the database
-    db.delete(image)
-    # Delete the image from Dropbox
-    dropbox_path = f"/{category_name}/{image.image_name}"
-    delete_from_dropbox(dropbox_path)
-    db.commit()
+    try:
+        # Delete images from S3 and DB
+        for image in images:
+            if image.object_key:
+                delete_from_s3(image.object_key)
+            db.delete(image)
+
+        # Delete the category itself
+        db.delete(category)
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete image category.",
+        )
