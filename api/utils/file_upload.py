@@ -25,7 +25,7 @@ DEFAULT_EXPIRATION = min(
 
 def refresh_presigned_url_if_expired(user_record, db: Session) -> str:
     if date.today() - user_record.date_presigned_url_generated > timedelta(days=7):
-        user_record.date_presigned_url_generated = datetime.now
+        user_record.date_presigned_url_generated = datetime.utcnow()
         db.add(user_record)
         db.commit()
         db.refresh(user_record)
