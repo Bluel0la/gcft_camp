@@ -92,18 +92,17 @@ class UserSummary(BaseModel):
     first_name: str
     category: str
     hall_name: str
-    floor: str
-    bed_number: str
+    floor: Optional[str] = None
+    bed_number: Optional[str] = None
     extra_beds: Optional[list[str]] = None
     phone_number: str
-    profile_picture_url: str
+    profile_picture_url: Optional[str] = None
     active_status: str
-    local_assembly: str
-    local_assembly_address: str
+    local_assembly: Optional[str] = None
+    local_assembly_address: Optional[str] = None
     arrival_date: date
     extra_beds: Optional[list[str]] = None
-    state: str
-    gender: str
-
+    state: Optional[str] = None
+    gender: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
