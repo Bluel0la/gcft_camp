@@ -138,7 +138,7 @@ def delete_image_category(
 ):
     #Check if the image category exits
     category = db.query(ImageCategory).filter(
-        category_id = ImageCategory.id
+        category_id == ImageCategory.id
     ).first()
     if not category:
         raise HTTPException(
