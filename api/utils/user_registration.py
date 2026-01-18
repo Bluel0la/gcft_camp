@@ -56,7 +56,7 @@ async def register_user_service(db: Session, payload, phone, file, number):
 
         raise HTTPException(
             status_code=400,
-            detail="All eligible halls are full for this category and age range.",
+            detail="Kindly Report for Physical Allocation.",
         )
 
     object_key = None
@@ -104,7 +104,7 @@ async def manual_register_user_service(
     if not hall:
         raise HTTPException(
             status_code=400,
-            detail="All eligible halls are full for this category and age range.",
+            detail="Kindly Report for Physical Allocation.",
         )
 
     object_key = None
@@ -145,7 +145,7 @@ async def backup_user_service(
     if not hall:
         raise HTTPException(
             status_code=400,
-            detail="All eligible halls are full for backup allocation.",
+            detail="Kindly Report for Physical Allocation.",
         )
     object_key = None
     try:
