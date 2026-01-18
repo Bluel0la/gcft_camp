@@ -27,28 +27,28 @@ def get_hall_statistics(hall_name: str, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Hall not found"
         )
-    
+
     # Get the floors in the hall
     floors = db.query(HallFloors).filter(HallFloors.hall_id == hall.id).all()
     total_beds = sum(floor.no_beds for floor in floors) * 2
-    
+
     # Get the number of active users per floor
     for floor in floors:
         floor.active_users_count = db.query(User).filter(
             User.floor == floor.floor_id,
             User.active_status == "active"
         ).count()
-    
+
     # Get all users per floor
     for floor in floors:
         floor.all_users_count = db.query(User).filter(
             User.floor == floor.floor_id
         ).count()
-    
+
     all_users_count = sum(floor.all_users_count for floor in floors)
     verified_users_count = sum(floor.active_users_count for floor in floors)
     remaining_space = total_beds - all_users_count
-        
+
     return{
         "hall_name": hall.hall_name,
         "no_floors": hall.no_floors,
@@ -70,31 +70,30 @@ def get_hall_statistics(hall_name: str, db: Session = Depends(get_db)):
         
     }
 
+
 # Endpoint to get users with medical conditions
-@analytics_route.get("/users-medical-conditions", response_model=list[UsersMedicalConditions])
+@analytics_route.get(
+    "/users-medical-conditions", response_model=list[UsersMedicalConditions]
+)
 def get_users_with_medical_conditions(db: Session = Depends(get_db)):
-    users= db.query(User).filter(
-        User.medical_issues != None
-    ).all()
-    if not users:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No users with medical conditions found"
+    rows = (
+        db.query(User, PhoneNumber)
+        .outerjoin(PhoneNumber, PhoneNumber.id == User.phone_number_id)
+        .filter(
+            User.medical_issues.isnot(None),
+            User.medical_issues != ""  # exclude empty strings
         )
-    # Get the users phone number
-    for user in users:
-        phone_number = db.query(PhoneNumber).filter(
-            PhoneNumber.id == user.phone_number_id).first()
-    
-    phone_number.phone_number
-        
-        
-    result = [
+        .all()
+    )
+
+    if not rows:
+        return []
+
+    return [
         UsersMedicalConditions(
             user_name=user.first_name,
-            phone_number=phone_number.phone_number,
-            medical_condition=user.medical_issues
+            phone_number=(phone.phone_number if phone else "Unknown"),
+            medical_condition=user.medical_issues,
         )
-        for user in users
+        for user, phone in rows
     ]
-    return result
