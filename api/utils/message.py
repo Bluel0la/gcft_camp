@@ -26,11 +26,10 @@ def send_sms_termii(phone_number: str, name: str, arrival_date: str, hall: str, 
 
     sms_content = (
         f"Good day {name}! You have been successfully registered for the camp meeting.\n"
-        f"Arrival Date: {arrival_date}\n"
         f"Hall: {hall}\n"
         f"Floor: Floor {floor}\n"
         f"Bed No: {bed_no}\n\n"
-        f"Please ensure to arrive on the specified date. Thank you and God bless you."
+        f"Please ensure to arrive on the registered date. Thank you and God bless you."
     )
 
     payload = {
