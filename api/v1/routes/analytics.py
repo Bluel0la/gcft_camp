@@ -30,7 +30,7 @@ def get_hall_statistics(hall_name: str, db: Session = Depends(get_db)):
     
     # Get the floors in the hall
     floors = db.query(HallFloors).filter(HallFloors.hall_id == hall.id).all()
-    total_beds = sum(floor.no_beds for floor in floors)
+    total_beds = sum(floor.no_beds for floor in floors) * 2
     
     # Get the number of active users per floor
     for floor in floors:
