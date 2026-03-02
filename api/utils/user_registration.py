@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from datetime import datetime
 
 
+
 def persist_user(db: Session, payload, phone, hall, floor_id, beds, gender: str, image_url: str, object_key: str, active_status: str | None = None ):
     user = User(
         first_name=payload.first_name,

@@ -244,37 +244,56 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
 
 # Return all users
 @registration_route.get("/users", response_model=list[UserSummary])
-def get_all_users(db: Session = Depends(get_db)):
-    users = db.query(user.User).all()
+def get_all_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
+    # 1. Fetch only the current page of users
+    users = (
+        db.query(user.User)
+        .order_by(user.User.id)  # <--- Add this
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
+    # 2. Extract IDs for just THESE users to keep our maps small
+    user_phone_ids = [u.phone_number_id for u in users if u.phone_number_id]
+    user_floor_ids = [u.floor for u in users if u.floor]
+
+    # 3. Targeted Phone Map: Only fetch phones for the users on this page
     phone_map = {
         record.id: record.phone_number
-        for record in db.query(phone_number.PhoneNumber).all()
+        for record in db.query(phone_number.PhoneNumber)
+        .filter(phone_number.PhoneNumber.id.in_(user_phone_ids))
+        .all()
     }
 
+    # 4. Targeted Floor Map: This fixes the N+1 problem for floors too!
+    floor_map = {
+        f.floor_id: f.floor_no
+        for f in db.query(HallFloors)
+        .filter(HallFloors.floor_id.in_(user_floor_ids))
+        .all()
+    }
+
+    # 5. Build the response using our localized maps
     return [
         UserSummary(
-            id=user.id,
-            first_name=user.first_name,
-            category=user.category,
-            hall_name=user.hall_name,
-            floor=(
-                f"Floor {db.query(HallFloors).filter(HallFloors.floor_id == user.floor).first().floor_no}"
-                if user.floor
-                else None
-            ),
-            bed_number=user.bed_number,
-            extra_beds=user.extra_beds or [],
-            phone_number=phone_map.get(user.phone_number_id, "Unknown"),
-            active_status=user.active_status,
-            profile_picture_url=user.profile_picture_url,
-            local_assembly=user.local_assembly,
-            local_assembly_address=user.local_assembly_address,
-            arrival_date=user.arrival_date,
-            state=user.state,
-            gender=user.gender
+            id=u.id,
+            first_name=u.first_name,
+            category=u.category,
+            hall_name=u.hall_name,
+            floor=f"Floor {floor_map.get(u.floor)}" if u.floor in floor_map else None,
+            bed_number=u.bed_number,
+            extra_beds=u.extra_beds or [],
+            phone_number=phone_map.get(u.phone_number_id, "Unknown"),
+            active_status=u.active_status,
+            profile_picture_url=u.profile_picture_url,
+            local_assembly=u.local_assembly,
+            local_assembly_address=u.local_assembly_address,
+            arrival_date=u.arrival_date,
+            state=u.state,
+            gender=u.gender,
         )
-        for user in users
+        for u in users
     ]
 
 
@@ -332,35 +351,55 @@ def activate_user(number: str, db: Session = Depends(get_db)):
 
 # return all active users
 @registration_route.get("/active-users", response_model=list[UserSummary])
-def get_active_users(db: Session = Depends(get_db)):
-    users = db.query(user.User).filter(user.User.active_status == "active").all()
+def get_active_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
+    # 1. Fetch only ACTIVE users for the current page, with consistent ordering
+    users = (
+        db.query(user.User)
+        .filter(user.User.active_status == "active")
+        .order_by(user.User.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
+    # 2. Collect IDs for Phones and Floors from just this batch of users
+    user_phone_ids = [u.phone_number_id for u in users if u.phone_number_id]
+    user_floor_ids = [u.floor for u in users if u.floor]
+
+    # 3. Targeted Phone Mapping
     phone_map = {
         record.id: record.phone_number
-        for record in db.query(phone_number.PhoneNumber).all()
+        for record in db.query(phone_number.PhoneNumber)
+        .filter(phone_number.PhoneNumber.id.in_(user_phone_ids))
+        .all()
     }
 
+    # 4. Targeted Floor Mapping (Fixes the slow internal db.query loop)
+    floor_map = {
+        f.floor_id: f.floor_no
+        for f in db.query(HallFloors)
+        .filter(HallFloors.floor_id.in_(user_floor_ids))
+        .all()
+    }
+
+    # 5. Return the mapped results
     return [
         UserSummary(
-            id=user.id,
-            first_name=user.first_name,
-            category=user.category,
-            hall_name=user.hall_name,
-            floor=(
-                f"Floor {db.query(HallFloors).filter(HallFloors.floor_id == user.floor).first().floor_no}"
-                if user.floor
-                else None
-            ),
-            bed_number=user.bed_number,
-            extra_beds=user.extra_beds or [],
-            phone_number=phone_map.get(user.phone_number_id, "Unknown"),
-            active_status=user.active_status,
-            profile_picture_url=user.profile_picture_url,
-            local_assembly=user.local_assembly,
-            local_assembly_address=user.local_assembly_address,
-            arrival_date=user.arrival_date,
-            state=user.state,
-            gender=user.gender
+            id=u.id,
+            first_name=u.first_name,
+            category=u.category,
+            hall_name=u.hall_name,
+            floor=(f"Floor {floor_map.get(u.floor)}" if u.floor in floor_map else None),
+            bed_number=u.bed_number,
+            extra_beds=u.extra_beds or [],
+            phone_number=phone_map.get(u.phone_number_id, "Unknown"),
+            active_status=u.active_status,
+            profile_picture_url=u.profile_picture_url,
+            local_assembly=u.local_assembly,
+            local_assembly_address=u.local_assembly_address,
+            arrival_date=u.arrival_date,
+            state=u.state,
+            gender=u.gender,
         )
-        for user in users
+        for u in users
     ]
