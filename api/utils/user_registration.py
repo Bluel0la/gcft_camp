@@ -47,13 +47,14 @@ async def register_user_service(db: Session, payload, phone, file, number):
     gender = validate_gender(payload.category)
 
     hall, floor, beds = allocate_bed(db, gender, payload)
-    if not hall and floor:
-        stats = compute_hall_statistics(db, floor)
-        await send_hall_full_email(
-            hall=floor,
-            total_beds=stats["total_beds"],
-            allocated_beds=stats["all_users_count"],
-        )
+    if not hall:
+        if floor:
+            stats = compute_hall_statistics(db, floor)
+            await send_hall_full_email(
+                hall=floor,
+                total_beds=stats["total_beds"],
+                allocated_beds=stats["all_users_count"],
+            )
 
         raise HTTPException(
             status_code=400,
