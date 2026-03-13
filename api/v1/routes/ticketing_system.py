@@ -10,8 +10,15 @@ from sqlalchemy.exc import IntegrityError
 
 from api.db.database import get_db
 from api.v1.models.minister import Minister, MealRecord
+from api.v1.models.user import User
+from api.v1.models.phone_number import PhoneNumber
+from datetime import datetime as dt
 from api.v1.schemas.ticketing import (
-    MinisterCreate, MinisterOut, MealMarkInput, MealRecordOut, MinisterStatusOut
+    MinisterCreate,
+    MinisterOut,
+    MealMarkInput,
+    MealRecordOut,
+    MinisterStatusOut,
 )
 
 ticketing_route = APIRouter(prefix="/ticketing", tags=["Ticketing System"])
@@ -43,12 +50,48 @@ async def register_minister(
 
     # 3. Save to Database
     try:
-        new_minister = Minister(**minister_in.model_dump())
+        minister_data = minister_in.model_dump(exclude={
+            "gender", "marital_status", "country", "state", "arrival_date"
+        })
+        new_minister = Minister(**minister_data)
         new_minister.profile_picture_url = image_url
         new_minister.object_key = object_key
         new_minister.date_presigned_url_generated = date.today()
 
         db.add(new_minister)
+
+        # 4. Save to User Table as well
+        phone = (
+            db.query(PhoneNumber)
+            .filter(PhoneNumber.phone_number == minister_in.phone_number)
+            .first()
+        )
+        if not phone:
+            phone = PhoneNumber(
+                phone_number=minister_in.phone_number, time_registered=dt.utcnow()
+            )
+            db.add(phone)
+            db.flush()  # ensure phone.id is available
+
+        new_user = User(
+            phone_number_id=phone.id,
+            category=minister_in.category or "minister",
+            first_name=minister_in.first_name,
+            gender="male",
+            marital_status=minister_in.marital_status,
+            country=minister_in.country,
+            state=minister_in.state,
+            arrival_date=minister_in.arrival_date,
+            date_verified=date.today(),
+            active_status="active",
+            local_assembly=minister_in.local_assembly,
+            local_assembly_address=minister_in.local_assembly_address,
+            profile_picture_url=image_url,
+            object_key=object_key,
+            date_presigned_url_generated=date.today(),
+        )
+        db.add(new_user)
+
         db.commit()
         db.refresh(new_minister)
         return new_minister
@@ -114,17 +157,19 @@ def get_meal_status(phone_number: str, db: Session = Depends(get_db)):
     minister = db.query(Minister).filter(Minister.phone_number == phone_number).first()
     if not minister:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Minister not found."
+            status_code=status.HTTP_404_NOT_FOUND, detail="Minister not found."
         )
 
-    records = db.query(MealRecord).filter(MealRecord.minister_id == minister.id).order_by(MealRecord.date).all()
+    records = (
+        db.query(MealRecord)
+        .filter(MealRecord.minister_id == minister.id)
+        .order_by(MealRecord.date)
+        .all()
+    )
     meal_dates = [record.date for record in records]
 
     return MinisterStatusOut(
-        minister=minister,
-        total_meals_taken=len(records),
-        meal_dates=meal_dates
+        minister=minister, total_meals_taken=len(records), meal_dates=meal_dates
     )
 
 

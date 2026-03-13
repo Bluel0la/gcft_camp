@@ -10,6 +10,7 @@ class MealType(str, Enum):
     lunch = "lunch"
     dinner = "dinner"
 
+
 class MinisterBase(BaseModel):
     phone_number: str
     first_name: str
@@ -19,6 +20,10 @@ class MinisterBase(BaseModel):
 
 
 class MinisterCreate(MinisterBase):
+    marital_status: str
+    country: str
+    state: str
+    arrival_date: date
     medical_issues: Optional[str] = None
     local_assembly: Optional[str] = None
     local_assembly_address: Optional[str] = None
@@ -28,6 +33,11 @@ class MinisterCreate(MinisterBase):
         cls,
         phone_number: str = Form(...),
         first_name: str = Form(...),
+        gender: str = Form(...),
+        marital_status: str = Form(...),
+        country: str = Form(...),
+        state: str = Form(...),
+        arrival_date: date = Form(...),
         last_name: Optional[str] = Form(None),
         room_number: Optional[str] = Form(None),
         category: Optional[str] = Form(None),
@@ -38,6 +48,11 @@ class MinisterCreate(MinisterBase):
         return cls(
             phone_number=phone_number,
             first_name=first_name,
+            gender=gender,
+            marital_status=marital_status,
+            country=country,
+            state=state,
+            arrival_date=arrival_date,
             last_name=last_name,
             room_number=room_number,
             category=category,

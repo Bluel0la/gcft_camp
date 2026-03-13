@@ -1,5 +1,15 @@
-from api.utils.user_registration import register_user_service, manual_register_user_service, register_phone_number_manually, backup_user_service
-from api.v1.schemas.registration import UserDisplay, UserRegistration, UserSummary, UserView
+from api.utils.user_registration import (
+    register_user_service,
+    manual_register_user_service,
+    register_phone_number_manually,
+    backup_user_service,
+)
+from api.v1.schemas.registration import (
+    UserDisplay,
+    UserRegistration,
+    UserSummary,
+    UserView,
+)
 from api.v1.schemas.phone_registration import PhoneNumberRegistration, PhoneNumberView
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from api.utils.file_upload import refresh_presigned_url_if_expired
@@ -13,6 +23,7 @@ from api.db.database import get_db
 from datetime import datetime
 
 registration_route = APIRouter(tags=["Hall Registration"])
+
 
 # Register a User's Phone Number
 @registration_route.post("/register-number", response_model=PhoneNumberView)
@@ -41,8 +52,9 @@ def register_phone_number(
     db.refresh(phone)
     return phone
 
+
 # Register a User
-@registration_route.post( "/register-user/{number}",response_model=UserDisplay)
+@registration_route.post("/register-user/{number}", response_model=UserDisplay)
 async def register_user(
     number: str,
     payload: UserRegistration = Depends(UserRegistration.as_form),
@@ -58,24 +70,22 @@ async def register_user(
         raise HTTPException(409, "User already registered")
 
     new_user, floor = await register_user_service(
-        db=db,
-        payload=payload,
-        phone=phone,
-        file=file,
-        number=number
+        db=db, payload=payload, phone=phone, file=file, number=number
     )
 
     send_sms_termii(
-       phone_number=number,
-       name=new_user.first_name,
-       arrival_date=new_user.arrival_date,
-       hall=new_user.hall_name,
-       floor=floor.floor_no,
-       bed_no=new_user.bed_number,
-       country=new_user.country,
+        phone_number=number,
+        name=new_user.first_name,
+        arrival_date=new_user.arrival_date,
+        hall=new_user.hall_name,
+        floor=floor.floor_no,
+        bed_no=new_user.bed_number,
+        country=new_user.country,
     )
 
-    floor_record = db.query(HallFloors).filter(HallFloors.floor_id == floor.floor_id).first()
+    floor_record = (
+        db.query(HallFloors).filter(HallFloors.floor_id == floor.floor_id).first()
+    )
 
     return {
         "id": new_user.id,
@@ -93,11 +103,14 @@ async def register_user(
         "marital_status": new_user.marital_status,
         "country": new_user.country,
         "state": new_user.state,
-        "arrival_date": new_user.arrival_date
+        "arrival_date": new_user.arrival_date,
     }
 
+
 # Register a User Manually by allocating them another's bed space
-@registration_route.post("/register-user-manual/{number_manual_register}", response_model=UserDisplay)
+@registration_route.post(
+    "/register-user-manual/{number_manual_register}", response_model=UserDisplay
+)
 async def register_user_manually(
     number_manual_register: str,
     number_late_comer: str,
@@ -121,9 +134,13 @@ async def register_user_manually(
         raise HTTPException(409, "User already registered")
 
     new_user, floor = await manual_register_user_service(
-        db=db, payload=payload, phone=phone, file=file, number=number_manual_register, late_comers_number=number_late_comer
+        db=db,
+        payload=payload,
+        phone=phone,
+        file=file,
+        number=number_manual_register,
+        late_comers_number=number_late_comer,
     )
-
 
     return {
         "id": new_user.id,
@@ -144,8 +161,11 @@ async def register_user_manually(
         "arrival_date": new_user.arrival_date,
     }
 
+
 # Register a user using backup Spaces
-@registration_route.post("/register-user-backup/{phone_number}", response_model=UserDisplay)
+@registration_route.post(
+    "/register-user-backup/{phone_number}", response_model=UserDisplay
+)
 async def backup_register(
     phone_number: str,
     payload: UserRegistration = Depends(UserRegistration.as_form),
@@ -165,11 +185,7 @@ async def backup_register(
         raise HTTPException(409, "User already registered")
 
     new_user, floor = await backup_user_service(
-        db=db,
-        payload=payload,
-        phone=phone,
-        file=file,
-        number=phone_number
+        db=db, payload=payload, phone=phone, file=file, number=phone_number
     )
     floor_record = (
         db.query(HallFloors).filter(HallFloors.floor_id == floor.floor_id).first()
@@ -241,6 +257,7 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
         "arrival_date": user_record.arrival_date,
         "state": user_record.state,
     }
+
 
 # Return all users
 @registration_route.get("/users", response_model=list[UserSummary])
@@ -336,6 +353,7 @@ def activate_user(number: str, db: Session = Depends(get_db)):
         gender=user_record.gender,
         age_range=user_record.age_range,
         marital_status=user_record.marital_status,
+        medical_issues=user_record.medical_issues,
         state=user_record.state,
         country=user_record.country,
         arrival_date=user_record.arrival_date,
@@ -343,9 +361,8 @@ def activate_user(number: str, db: Session = Depends(get_db)):
         local_assembly=user_record.local_assembly,
         local_assembly_address=user_record.local_assembly_address,
         names_children=user_record.names_children,
-        medical_issues=user_record.medical_issues,
         active_status=user_record.active_status,
-        profile_picture_url=user_record.profile_picture_url
+        profile_picture_url=user_record.profile_picture_url,
     )
 
 

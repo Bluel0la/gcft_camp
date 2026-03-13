@@ -4,6 +4,7 @@ from datetime import date
 from fastapi import Form
 from enum import Enum
 
+
 class AgeRangeEnum(str, Enum):
     age_10_17 = "10-17"
     age_18_25 = "18-25"
@@ -33,7 +34,7 @@ class UserBase(BaseModel):
     floor: Optional[str] = None
     bed_number: Optional[str] = None
     active_status: Optional[str] = None
-    extra_beds: Optional[list[str]] = None  
+    extra_beds: Optional[list[str]] = None
 
 
 class UserRegistration(UserBase):
@@ -74,16 +75,18 @@ class UserView(UserBase):
     id: int
     gender: str
     phone_number: Optional[str] = Field(default=None)
+    medical_issues: Optional[str] = Field(default=None)
 
     class Config:
         orm_mode = True
 
 
 class UserDisplay(UserView):
-    
+
     class Config:
         orm_mode = True
         from_attributes = True
+
     pass
 
 
@@ -101,6 +104,7 @@ class UserSummary(BaseModel):
     local_assembly: Optional[str] = None
     local_assembly_address: Optional[str] = None
     arrival_date: date
+    medical_issues: Optional[str] = None
     extra_beds: Optional[list[str]] = None
     state: Optional[str] = None
     gender: Optional[str] = None
