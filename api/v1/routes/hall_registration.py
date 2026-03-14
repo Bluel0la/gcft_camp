@@ -236,12 +236,14 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
 
     profile_picture_url = refresh_presigned_url_if_expired(user_record, db)
 
+    floor_no = floor.floor_no if floor else None
+
     return {
         "id": user_record.id,
         "first_name": user_record.first_name,
         "category": user_record.category,
         "hall_name": user_record.hall_name,
-        "floor": f"Floor {floor.floor_no}",
+        "floor": f"Floor {floor_no}" if floor_no else None,
         "bed_number": user_record.bed_number,
         "extra_beds": user_record.extra_beds or [],
         "phone_number": phone.phone_number,
