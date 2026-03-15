@@ -24,6 +24,11 @@ class Minister(Base):
     local_assembly_address = Column(String, nullable=True)
 
     room_number = Column(String, nullable=True)
+    # Hall and bed allocation fields
+    hall_name = Column(String, ForeignKey("halls.hall_name"), nullable=True)
+    floor = Column(ForeignKey("hall_floors.floor_id"), nullable=True)
+    bed_number = Column(String, nullable=True)
+    
     profile_picture_url = Column(String, nullable=True, default="getalife")
     object_key = Column(String, unique=True, nullable=False)
     date_presigned_url_generated = Column(Date, nullable=False)

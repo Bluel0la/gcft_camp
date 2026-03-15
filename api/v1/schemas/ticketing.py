@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator, Field
 from typing import Optional
 from datetime import date, datetime
 from fastapi import Form
@@ -11,6 +11,17 @@ class MealType(str, Enum):
     dinner = "dinner"
 
 
+class AgeRangeEnum(str, Enum):
+    age_10_17 = "10-17"
+    age_18_25 = "18-25"
+    age_26_35 = "26-35"
+    age_36_45 = "36-45"
+    age_45_55 = "46-55"
+    age_56_65 = "56-65"
+    age_66_70 = "66-70"
+    age_71_plus = "71+"
+
+
 class MinisterBase(BaseModel):
     phone_number: str
     first_name: str
@@ -20,6 +31,8 @@ class MinisterBase(BaseModel):
 
 
 class MinisterCreate(MinisterBase):
+    gender: str
+    age_range: AgeRangeEnum
     marital_status: str
     country: str
     state: str
@@ -27,6 +40,10 @@ class MinisterCreate(MinisterBase):
     medical_issues: Optional[str] = None
     local_assembly: Optional[str] = None
     local_assembly_address: Optional[str] = None
+    # Manual hall allocation fields
+    hall_name: Optional[str] = None
+    floor_id: Optional[str] = None  # UUID as string
+    bed_number: Optional[str] = None
 
     @classmethod
     def as_form(
@@ -34,6 +51,7 @@ class MinisterCreate(MinisterBase):
         phone_number: str = Form(...),
         first_name: str = Form(...),
         gender: str = Form(...),
+        age_range: AgeRangeEnum = Form(...),
         marital_status: str = Form(...),
         country: str = Form(...),
         state: str = Form(...),
@@ -44,11 +62,15 @@ class MinisterCreate(MinisterBase):
         medical_issues: Optional[str] = Form(None),
         local_assembly: Optional[str] = Form(None),
         local_assembly_address: Optional[str] = Form(None),
+        hall_name: Optional[str] = Form(None),
+        floor_id: Optional[str] = Form(None),
+        bed_number: Optional[str] = Form(None),
     ):
         return cls(
             phone_number=phone_number,
             first_name=first_name,
             gender=gender,
+            age_range=age_range,
             marital_status=marital_status,
             country=country,
             state=state,
@@ -59,12 +81,15 @@ class MinisterCreate(MinisterBase):
             medical_issues=medical_issues,
             local_assembly=local_assembly,
             local_assembly_address=local_assembly_address,
+            hall_name=hall_name,
+            floor_id=floor_id,
+            bed_number=bed_number,
         )
 
 
 class MinisterOut(MinisterBase):
     id: int
-    identification_meal_number: int  # Added this field
+    identification_meal_number: int
     profile_picture_url: Optional[str] = None
     created_at: datetime
 
@@ -74,15 +99,15 @@ class MinisterOut(MinisterBase):
 class MealMarkInput(BaseModel):
     phone_number: Optional[str] = None
     identification_meal_number: Optional[int] = None
-    date: Optional[date] = None
+    meal_date: Optional[date] = Field(None, alias="date")
     meal_type: MealType
 
 
 class MealRecordOut(BaseModel):
     id: int
     minister_id: int
-    date: date
-    meal_type: str  # Included in output
+    meal_date: date = Field(alias="date")
+    meal_type: str
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -252,3 +252,41 @@ def compute_hall_statistics(db: Session, hall: Hall) -> dict:
         "active_users_count": active_users_count,
         "remaining_space": total_beds - all_users_count,
     }
+
+
+def allocate_minister_manually(
+    db: Session,
+    hall_name: Optional[str],
+    floor_id: Optional[str],
+    bed_number: Optional[str],
+) -> Tuple[Optional[Hall], Optional[HallFloors]]:
+    """
+    Validates and retrieves hall/floor for manual minister allocation.
+    
+    Returns: (hall, floor) or raises HTTPException if validation fails
+    """
+    
+    # If no allocation provided, return None (minister won't be assigned to a hall)
+    if not hall_name or not floor_id or not bed_number:
+        return None, None
+    
+    # Validate hall exists
+    hall = db.query(Hall).filter(Hall.hall_name == hall_name).first()
+    if not hall:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Hall '{hall_name}' not found."
+        )
+    
+    # Validate floor exists and belongs to the hall
+    floor = db.query(HallFloors).filter(
+        HallFloors.floor_id == floor_id,
+        HallFloors.hall_id == hall.id
+    ).first()
+    if not floor:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Floor not found in hall '{hall_name}'."
+        )
+    
+    return hall, floor

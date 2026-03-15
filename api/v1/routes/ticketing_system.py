@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from api.utils.file_upload import process_and_upload_image, delete_from_s3
+from api.utils.bed_allocation import allocate_minister_manually
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from datetime import date
@@ -48,19 +49,36 @@ async def register_minister(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
 
-    # 3. Save to Database
+    # 3. Validate and retrieve hall/floor allocation if provided
+    hall, floor = allocate_minister_manually(
+        db,
+        minister_in.hall_name,
+        minister_in.floor_id,
+        minister_in.bed_number
+    )
+
+    # 4. Save to Database
     try:
+        # Prepare minister data, excluding fields that need special handling
         minister_data = minister_in.model_dump(exclude={
-            "gender", "marital_status", "country", "state", "arrival_date"
+            "gender", "age_range", "marital_status", "country", "state", "arrival_date",
+            "hall_name", "floor_id", "bed_number"
         })
-        new_minister = Minister(**minister_data)
-        new_minister.profile_picture_url = image_url
-        new_minister.object_key = object_key
-        new_minister.date_presigned_url_generated = date.today()
+        
+        # Create minister with all fields at once
+        new_minister = Minister(
+            **minister_data,
+            profile_picture_url=image_url,
+            object_key=object_key,
+            date_presigned_url_generated=date.today(),
+            hall_name=hall.hall_name if hall else None,
+            floor=floor.floor_id if floor else None,
+            bed_number=minister_in.bed_number if floor else None,
+        )
 
         db.add(new_minister)
 
-        # 4. Save to User Table as well
+        # 5. Save to User Table as well
         phone = (
             db.query(PhoneNumber)
             .filter(PhoneNumber.phone_number == minister_in.phone_number)
@@ -77,7 +95,8 @@ async def register_minister(
             phone_number_id=phone.id,
             category=minister_in.category or "minister",
             first_name=minister_in.first_name,
-            gender="male",
+            gender=minister_in.gender,
+            age_range=minister_in.age_range,
             marital_status=minister_in.marital_status,
             country=minister_in.country,
             state=minister_in.state,
@@ -86,9 +105,14 @@ async def register_minister(
             active_status="active",
             local_assembly=minister_in.local_assembly,
             local_assembly_address=minister_in.local_assembly_address,
+            medical_issues=minister_in.medical_issues,
             profile_picture_url=image_url,
             object_key=object_key,
             date_presigned_url_generated=date.today(),
+            # Set hall allocation if provided
+            hall_name=hall.hall_name if hall else None,
+            floor=floor.floor_id if floor else None,
+            bed_number=minister_in.bed_number if floor else None,
         )
         db.add(new_user)
 
@@ -99,7 +123,6 @@ async def register_minister(
     except Exception as e:
         db.rollback()
         if object_key:
-            # IMPORTANT: Added await here
             delete_from_s3(object_key)
 
         # Log the actual error to your terminal so you can see why it failed!
@@ -107,7 +130,7 @@ async def register_minister(
 
         raise HTTPException(
             status_code=500,
-            detail=f"Database save failed: {str(e)}",  # Reveal error temporarily to debug
+            detail=f"Database save failed: {str(e)}",
         )
 
 
@@ -133,7 +156,7 @@ def mark_meal(meal_in: MealMarkInput, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Minister not found.")
 
     # 2. Logic for marking meal...
-    meal_date = meal_in.date or date.today()
+    meal_date = meal_in.meal_date or date.today()
     new_record = MealRecord(
         minister_id=minister.id, date=meal_date, meal_type=meal_in.meal_type.lower()
     )
