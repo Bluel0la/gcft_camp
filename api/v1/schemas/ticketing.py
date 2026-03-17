@@ -90,6 +90,9 @@ class MinisterCreate(MinisterBase):
 class MinisterOut(MinisterBase):
     id: int
     identification_meal_number: int
+    hall_name: Optional[str] = None
+    floor: Optional[str] = None
+    bed_number: Optional[str] = None
     profile_picture_url: Optional[str] = None
     created_at: datetime
 

@@ -2,18 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from api.utils.file_upload import process_and_upload_image, delete_from_s3
 from api.utils.bed_allocation import allocate_minister_manually
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
-from datetime import date
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from datetime import date, datetime, timezone
 from typing import List
 from sqlalchemy import or_
-from sqlalchemy.exc import IntegrityError
 
 
 from api.db.database import get_db
 from api.v1.models.minister import Minister, MealRecord
 from api.v1.models.user import User
 from api.v1.models.phone_number import PhoneNumber
-from datetime import datetime as dt
 from api.v1.schemas.ticketing import (
     MinisterCreate,
     MinisterOut,
@@ -59,15 +57,16 @@ async def register_minister(
 
     # 4. Save to Database
     try:
-        # Prepare minister data, excluding fields that need special handling
-        minister_data = minister_in.model_dump(exclude={
-            "gender", "age_range", "marital_status", "country", "state", "arrival_date",
-            "hall_name", "floor_id", "bed_number"
-        })
-        
-        # Create minister with all fields at once
+        # Create minister with explicitly mapped fields
         new_minister = Minister(
-            **minister_data,
+            phone_number=minister_in.phone_number,
+            first_name=minister_in.first_name,
+            last_name=minister_in.last_name,
+            category=minister_in.category or "minister",
+            room_number=minister_in.room_number,
+            medical_issues=minister_in.medical_issues,
+            local_assembly=minister_in.local_assembly,
+            local_assembly_address=minister_in.local_assembly_address,
             profile_picture_url=image_url,
             object_key=object_key,
             date_presigned_url_generated=date.today(),
@@ -86,17 +85,28 @@ async def register_minister(
         )
         if not phone:
             phone = PhoneNumber(
-                phone_number=minister_in.phone_number, time_registered=dt.utcnow()
+                phone_number=minister_in.phone_number,
+                time_registered=datetime.now(timezone.utc),
             )
             db.add(phone)
             db.flush()  # ensure phone.id is available
+
+        # Check for existing user to avoid duplicates
+        existing_user = (
+            db.query(User).filter(User.phone_number_id == phone.id).first()
+        )
+        if existing_user:
+            raise HTTPException(
+                status_code=400,
+                detail="A user with this phone number already exists.",
+            )
 
         new_user = User(
             phone_number_id=phone.id,
             category=minister_in.category or "minister",
             first_name=minister_in.first_name,
-            gender=minister_in.gender,
-            age_range=minister_in.age_range,
+            gender=minister_in.gender.value if hasattr(minister_in.gender, 'value') else minister_in.gender,
+            age_range=minister_in.age_range.value,
             marital_status=minister_in.marital_status,
             country=minister_in.country,
             state=minister_in.state,
@@ -109,7 +119,6 @@ async def register_minister(
             profile_picture_url=image_url,
             object_key=object_key,
             date_presigned_url_generated=date.today(),
-            # Set hall allocation if provided
             hall_name=hall.hall_name if hall else None,
             floor=floor.floor_id if floor else None,
             bed_number=minister_in.bed_number if floor else None,
@@ -120,17 +129,20 @@ async def register_minister(
         db.refresh(new_minister)
         return new_minister
 
-    except Exception as e:
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except SQLAlchemyError as e:
         db.rollback()
         if object_key:
             delete_from_s3(object_key)
 
-        # Log the actual error to your terminal so you can see why it failed!
         print(f"DATABASE ERROR: {e}")
 
         raise HTTPException(
             status_code=500,
-            detail=f"Database save failed: {str(e)}",
+            detail="Database save failed. Please try again or contact support.",
         )
 
 
