@@ -94,7 +94,7 @@ class UserSummary(BaseModel):
     id: int
     first_name: str
     category: str
-    hall_name: str
+    hall_name: Optional[str] = None
     floor: Optional[str] = None
     bed_number: Optional[str] = None
     extra_beds: Optional[list[str]] = None
