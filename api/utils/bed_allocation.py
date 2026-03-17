@@ -266,8 +266,9 @@ def allocate_minister_manually(
     Returns: (hall, floor) or raises HTTPException if validation fails
     """
     
-    # If no allocation provided, return None (minister won't be assigned to a hall)
-    if not hall_name or not floor_id or not bed_number:
+    # If no hall/floor provided, return None (minister won't be assigned to a hall)
+    # bed_number is optional — it doesn't apply to ministers
+    if not hall_name or not floor_id:
         return None, None
     
     # Validate hall exists
