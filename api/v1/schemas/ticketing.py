@@ -64,7 +64,7 @@ class MinisterCreate(MinisterBase):
         local_assembly: Optional[str] = Form(None),
         local_assembly_address: Optional[str] = Form(None),
         hall_name: Optional[str] = Form(None),
-        floor_id: Optional[str] = Form(None),
+        floor_id: Optional[UUID] = Form(None),
         bed_number: Optional[str] = Form(None),
     ):
         return cls(
