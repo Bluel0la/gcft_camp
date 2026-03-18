@@ -3,6 +3,7 @@ from typing import Optional
 from datetime import date, datetime
 from fastapi import Form
 from enum import Enum
+from uuid import UUID
 
 
 class MealType(str, Enum):
@@ -42,7 +43,7 @@ class MinisterCreate(MinisterBase):
     local_assembly_address: Optional[str] = None
     # Manual hall allocation fields
     hall_name: Optional[str] = None
-    floor_id: Optional[str] = None  # UUID as string
+    floor_id: Optional[UUID] = None  # UUID as string
     bed_number: Optional[str] = None
 
     @classmethod
