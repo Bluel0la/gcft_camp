@@ -49,10 +49,7 @@ async def register_minister(
 
     # 3. Validate and retrieve hall/floor allocation if provided
     hall, floor = allocate_minister_manually(
-        db,
-        minister_in.hall_name,
-        minister_in.floor_id,
-        minister_in.bed_number
+        db, minister_in.hall_name, minister_in.floor_id, minister_in.bed_number
     )
 
     # 4. Save to Database
@@ -92,9 +89,7 @@ async def register_minister(
             db.flush()  # ensure phone.id is available
 
         # Check for existing user to avoid duplicates
-        existing_user = (
-            db.query(User).filter(User.phone_number_id == phone.id).first()
-        )
+        existing_user = db.query(User).filter(User.phone_number_id == phone.id).first()
         if existing_user:
             raise HTTPException(
                 status_code=400,
@@ -105,7 +100,11 @@ async def register_minister(
             phone_number_id=phone.id,
             category=minister_in.category or "minister",
             first_name=minister_in.first_name,
-            gender=minister_in.gender.value if hasattr(minister_in.gender, 'value') else minister_in.gender,
+            gender=(
+                minister_in.gender.value
+                if hasattr(minister_in.gender, "value")
+                else minister_in.gender
+            ),
             age_range=minister_in.age_range.value,
             marital_status=minister_in.marital_status,
             country=minister_in.country,
@@ -120,7 +119,7 @@ async def register_minister(
             object_key=object_key,
             date_presigned_url_generated=date.today(),
             hall_name=hall.hall_name if hall else None,
-            floor=floor.floor_id if floor else None,
+            floor=str(floor.floor_id) if floor else None,
             bed_number=minister_in.bed_number if floor else None,
         )
         db.add(new_user)
