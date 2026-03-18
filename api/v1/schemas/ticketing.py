@@ -43,7 +43,7 @@ class MinisterCreate(MinisterBase):
     local_assembly_address: Optional[str] = None
     # Manual hall allocation fields
     hall_name: Optional[str] = None
-    floor_id: Optional[UUID] = None  # UUID as string
+    floor_id: Optional[UUID] = Form(None)  # UUID as string
     bed_number: Optional[str] = None
 
     @classmethod
