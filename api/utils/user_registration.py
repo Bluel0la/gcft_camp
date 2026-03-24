@@ -15,10 +15,10 @@ def persist_user(db: Session, payload, phone, hall, floor_id, beds, gender: str,
     user = User(
         first_name=payload.first_name,
         category=payload.category,
-        hall_name=hall.hall_name,
+        hall_name=hall.hall_name if hall else None,
         floor=floor_id,
-        bed_number=beds[0],
-        extra_beds=beds[1:],
+        bed_number=beds[0] if beds else None,
+        extra_beds=beds[1:] if len(beds) > 1 else [],
         phone_number_id=phone.id,
         gender=gender,
         age_range=payload.age_range,
@@ -187,3 +187,35 @@ def register_phone_number_manually(phone_number, db):
     db.commit()
     db.refresh(phone)
     return phone
+
+
+async def attendance_only_register_service(db: Session, payload, phone, file, number):
+    gender = validate_gender(payload.category)
+    payload.no_children = payload.no_children or 0
+
+    object_key = None
+    try:
+        image_url, object_key = await process_and_upload_image(
+            file, payload.first_name, number
+        )
+
+        user = persist_user(
+            db=db,
+            payload=payload,
+            phone=phone,
+            hall=None,
+            floor_id=None,
+            beds=[],
+            gender=gender,
+            image_url=image_url,
+            object_key=object_key,
+            active_status="active",
+        )
+
+        return user
+
+    except Exception:
+        db.rollback()
+        if object_key:
+            delete_from_s3(object_key)
+        raise

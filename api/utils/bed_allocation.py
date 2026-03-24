@@ -19,11 +19,17 @@ def beds_required(
     """
     Returns allocated bed labels and updated counters.
 
-    - Allocates 1 bed if children < 2
-    - Allocates 4 beds if children >= 2
+    - Allocates 1 bed if children are 0 or None
+    - Allocates 2 beds if 1 <= children <= 2
+    - Allocates 4 beds if children >= 3
     """
 
-    beds_needed = 4 if no_children is not None and no_children >= 2 else 1
+    if no_children is None or no_children == 0:
+        beds_needed = 1
+    elif 1 <= no_children <= 2:
+        beds_needed = 2
+    else:
+        beds_needed = 4
     allocated_beds: List[str] = []
 
     for _ in range(beds_needed):

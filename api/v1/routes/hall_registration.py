@@ -3,6 +3,7 @@ from api.utils.user_registration import (
     manual_register_user_service,
     register_phone_number_manually,
     backup_user_service,
+    attendance_only_register_service,
 )
 from api.v1.schemas.registration import (
     UserDisplay,
@@ -14,7 +15,7 @@ from api.v1.schemas.phone_registration import PhoneNumberRegistration, PhoneNumb
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from api.utils.file_upload import refresh_presigned_url_if_expired
 from api.v1.models.phone_number import PhoneNumber
-from api.utils.message import send_sms_termii
+from api.utils.message import send_sms_termii, send_sms_termii_attendance_only
 from api.v1.models import phone_number, user
 from api.v1.models.floor import HallFloors
 from api.v1.models.user import User
@@ -152,6 +153,53 @@ async def register_user_manually(
         "bed_number": new_user.bed_number,
         "extra_beds": new_user.extra_beds or [],
         "phone_number": number_manual_register,
+        "active_status": new_user.active_status,
+        "profile_picture_url": new_user.profile_picture_url,
+        "age_range": new_user.age_range,
+        "marital_status": new_user.marital_status,
+        "country": new_user.country,
+        "state": new_user.state,
+        "arrival_date": new_user.arrival_date,
+    }
+
+
+# Register a user for attendance only (no accommodation)
+@registration_route.post("/register-attendance-only/{number}", response_model=UserDisplay)
+async def register_attendance_only(
+    number: str,
+    payload: UserRegistration = Depends(UserRegistration.as_form),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    phone = db.query(PhoneNumber).filter(PhoneNumber.phone_number == number).first()
+    if not phone:
+        raise HTTPException(404, "Phone number not found")
+
+    existing = db.query(User).filter(User.phone_number_id == phone.id).first()
+    if existing:
+        raise HTTPException(409, "User already registered")
+
+    new_user = await attendance_only_register_service(
+        db=db, payload=payload, phone=phone, file=file, number=number
+    )
+
+    send_sms_termii_attendance_only(
+        phone_number=number,
+        name=new_user.first_name,
+        arrival_date=str(new_user.arrival_date),
+        country=new_user.country,
+    )
+
+    return {
+        "id": new_user.id,
+        "first_name": new_user.first_name,
+        "gender": new_user.gender,
+        "category": new_user.category,
+        "hall_name": None,
+        "floor": None,
+        "bed_number": None,
+        "extra_beds": [],
+        "phone_number": number,
         "active_status": new_user.active_status,
         "profile_picture_url": new_user.profile_picture_url,
         "age_range": new_user.age_range,

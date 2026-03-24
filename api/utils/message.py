@@ -49,3 +49,42 @@ def send_sms_termii(phone_number: str, name: str, arrival_date: str, hall: str, 
     response = requests.request("POST", url, headers=headers, json=payload)
 
     return response.json()
+
+
+def send_sms_termii_attendance_only(phone_number: str, name: str, arrival_date: str, country: str):
+    """
+    Asynchronously sends an SMS via the Termii API for attendance-only registration.
+    """
+
+    # Normalize phone number based on country
+    country = country.lower()
+    if phone_number.startswith("0"):
+        if country == "nigeria":
+            phone_number = "234" + phone_number[1:]
+        elif country == "ghana":
+            phone_number = "233" + phone_number[1:]
+        elif country == "kenya":
+            phone_number = "254" + phone_number[1:]
+
+    sms_content = (
+        f"Good day {name}! You have been successfully registered for the camp meeting for attendance only.\n"
+        f"Please ensure to arrive on the registered date. Thank you and God bless you."
+    )
+
+    payload = {
+        "to": phone_number,
+        "from": f"{from_client}",
+        "sms": sms_content,
+        "type": "plain",
+        "channel": "generic",
+        "api_key": termi_api_key,
+    }
+    url = f"https://{base_url}/api/sms/send"
+
+    headers = {
+        "Content-Type": "application/json",
+    }
+
+    response = requests.request("POST", url, headers=headers, json=payload)
+
+    return response.json()
