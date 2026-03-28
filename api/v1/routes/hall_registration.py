@@ -278,9 +278,11 @@ def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
             status_code=404, detail="No user registered with this number."
         )
 
-    floor = (
-        db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
-    )
+    floor = None
+    if user_record.floor:
+        floor = (
+            db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
+        )
 
     profile_picture_url = refresh_presigned_url_if_expired(user_record, db)
 
@@ -387,9 +389,11 @@ def activate_user(number: str, db: Session = Depends(get_db)):
     user_record.active_status = "active"
     db.commit()
     db.refresh(user_record)
-    floor_record = (
-        db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
-    )
+    floor_record = None
+    if user_record.floor:
+        floor_record = (
+            db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
+        )
     floor_no = floor_record.floor_no if floor_record else None
     return UserView(
         id=user_record.id,

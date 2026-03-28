@@ -209,7 +209,7 @@ async def attendance_only_register_service(db: Session, payload, phone, file, nu
             gender=gender,
             image_url=image_url,
             object_key=object_key,
-            active_status="active",
+            active_status="inactive",
         )
 
         return user
