@@ -1,8 +1,8 @@
-"""Inital Migration
+"""programme_rework
 
-Revision ID: d17f906cb017
+Revision ID: eaba31f84676
 Revises: 
-Create Date: 2025-12-26 18:58:45.537799
+Create Date: 2026-03-30 07:13:03.454897
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'd17f906cb017'
+revision: str = 'eaba31f84676'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -46,11 +46,23 @@ def upgrade() -> None:
     op.create_table('phone_numbers',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('phone_number', sa.String(), nullable=False),
-    sa.Column('time_registered', sa.DateTime(), nullable=False),
+    sa.Column('is_parent', sa.Boolean(), nullable=False),
+    sa.Column('time_registered', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('phone_number')
     )
     op.create_index(op.f('ix_phone_numbers_id'), 'phone_numbers', ['id'], unique=False)
+    op.create_table('programmes',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('programme_name', sa.String(), nullable=False),
+    sa.Column('start_date', sa.Date(), nullable=False),
+    sa.Column('close_date', sa.Date(), nullable=False),
+    sa.Column('registration_status', sa.Enum('open', 'closed', 'suspended', name='registration_status_enum'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_programmes_id'), 'programmes', ['id'], unique=False)
     op.create_table('hall_floors',
     sa.Column('floor_id', sa.UUID(), nullable=False),
     sa.Column('hall_id', sa.Integer(), nullable=False),
@@ -70,6 +82,7 @@ def upgrade() -> None:
     sa.Column('image_url', sa.String(), nullable=False),
     sa.Column('category_id', sa.Integer(), nullable=False),
     sa.Column('status', sa.Enum('in-use', 'inactive', name='image_status_enum'), nullable=False),
+    sa.Column('object_key', sa.String(), nullable=True),
     sa.ForeignKeyConstraint(['category_id'], ['image_categories.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('image_name'),
@@ -83,9 +96,39 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['floor_id'], ['hall_floors.floor_id'], ),
     sa.PrimaryKeyConstraint('floor_id', 'category_id')
     )
+    op.execute(sa.schema.CreateSequence(sa.Sequence('meal_id_sequence')))
+    op.create_table('ministers',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('identification_meal_number', sa.Integer(), server_default=sa.text("nextval('meal_id_sequence')"), nullable=True),
+    sa.Column('phone_number', sa.String(), nullable=False),
+    sa.Column('first_name', sa.String(), nullable=False),
+    sa.Column('last_name', sa.String(), nullable=True),
+    sa.Column('category', sa.String(), nullable=False),
+    sa.Column('medical_issues', sa.String(), nullable=True),
+    sa.Column('local_assembly', sa.String(), nullable=True),
+    sa.Column('local_assembly_address', sa.String(), nullable=True),
+    sa.Column('room_number', sa.String(), nullable=True),
+    sa.Column('hall_name', sa.String(), nullable=True),
+    sa.Column('floor', sa.UUID(), nullable=True),
+    sa.Column('bed_number', sa.String(), nullable=True),
+    sa.Column('profile_picture_url', sa.String(), nullable=True),
+    sa.Column('object_key', sa.String(), nullable=False),
+    sa.Column('date_presigned_url_generated', sa.Date(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.ForeignKeyConstraint(['floor'], ['hall_floors.floor_id'], ),
+    sa.ForeignKeyConstraint(['hall_name'], ['halls.hall_name'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('identification_meal_number'),
+    sa.UniqueConstraint('object_key')
+    )
+    op.create_index(op.f('ix_ministers_id'), 'ministers', ['id'], unique=False)
+    op.create_index(op.f('ix_ministers_phone_number'), 'ministers', ['phone_number'], unique=True)
     op.create_table('users',
     sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('programme_id', sa.Integer(), nullable=False),
     sa.Column('phone_number_id', sa.Integer(), nullable=False),
+    sa.Column('registration_type', sa.Enum('attendance_only', 'with_accommodation', name='registration_type_enum'), nullable=False),
+    sa.Column('registration_completed', sa.Boolean(), nullable=False),
     sa.Column('category', sa.String(), nullable=False),
     sa.Column('first_name', sa.String(), nullable=False),
     sa.Column('gender', sa.String(), nullable=False),
@@ -100,33 +143,58 @@ def upgrade() -> None:
     sa.Column('medical_issues', sa.String(), nullable=True),
     sa.Column('local_assembly', sa.String(), nullable=True),
     sa.Column('local_assembly_address', sa.String(), nullable=True),
-    sa.Column('hall_name', sa.String(), nullable=True),
-    sa.Column('floor', sa.UUID(), nullable=True),
+    sa.Column('hall_id', sa.Integer(), nullable=True),
+    sa.Column('floor_id', sa.UUID(), nullable=True),
     sa.Column('bed_number', sa.String(), nullable=True),
     sa.Column('extra_beds', sa.JSON(), nullable=True),
     sa.Column('profile_picture_url', sa.String(), nullable=True),
     sa.Column('object_key', sa.String(), nullable=False),
     sa.Column('date_presigned_url_generated', sa.Date(), nullable=False),
     sa.Column('active_status', sa.Enum('active', 'inactive', 'relocated', name='active_status_enum'), nullable=False),
-    sa.ForeignKeyConstraint(['floor'], ['hall_floors.floor_id'], ),
-    sa.ForeignKeyConstraint(['hall_name'], ['halls.hall_name'], ),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.ForeignKeyConstraint(['floor_id'], ['hall_floors.floor_id'], ),
+    sa.ForeignKeyConstraint(['hall_id'], ['halls.id'], ),
     sa.ForeignKeyConstraint(['phone_number_id'], ['phone_numbers.id'], ),
+    sa.ForeignKeyConstraint(['programme_id'], ['programmes.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('object_key')
     )
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
+    op.create_table('meal_records',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('minister_id', sa.Integer(), nullable=False),
+    sa.Column('date', sa.Date(), nullable=False),
+    sa.Column('meal_type', sa.String(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.ForeignKeyConstraint(['minister_id'], ['ministers.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('minister_id', 'date', 'meal_type', name='uq_minister_meal_session')
+    )
+    op.create_index(op.f('ix_meal_records_date'), 'meal_records', ['date'], unique=False)
+    op.create_index(op.f('ix_meal_records_id'), 'meal_records', ['id'], unique=False)
+    op.create_index(op.f('ix_meal_records_meal_type'), 'meal_records', ['meal_type'], unique=False)
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_index(op.f('ix_meal_records_meal_type'), table_name='meal_records')
+    op.drop_index(op.f('ix_meal_records_id'), table_name='meal_records')
+    op.drop_index(op.f('ix_meal_records_date'), table_name='meal_records')
+    op.drop_table('meal_records')
     op.drop_index(op.f('ix_users_id'), table_name='users')
     op.drop_table('users')
+    op.drop_index(op.f('ix_ministers_phone_number'), table_name='ministers')
+    op.drop_index(op.f('ix_ministers_id'), table_name='ministers')
+    op.drop_table('ministers')
     op.drop_table('floor_category_association')
     op.drop_index(op.f('ix_images_id'), table_name='images')
     op.drop_table('images')
     op.drop_index(op.f('ix_hall_floors_floor_id'), table_name='hall_floors')
     op.drop_table('hall_floors')
+    op.drop_index(op.f('ix_programmes_id'), table_name='programmes')
+    op.drop_table('programmes')
     op.drop_index(op.f('ix_phone_numbers_id'), table_name='phone_numbers')
     op.drop_table('phone_numbers')
     op.drop_index(op.f('ix_image_categories_id'), table_name='image_categories')
@@ -135,4 +203,5 @@ def downgrade() -> None:
     op.drop_table('halls')
     op.drop_index(op.f('ix_categories_id'), table_name='categories')
     op.drop_table('categories')
+    op.execute(sa.schema.DropSequence(sa.Sequence('meal_id_sequence')))
     # ### end Alembic commands ###

@@ -1,356 +1,298 @@
-from api.utils.user_registration import (
-    register_user_service,
-    manual_register_user_service,
-    register_phone_number_manually,
-    backup_user_service,
-    attendance_only_register_service,
-)
+"""
+Registration endpoints — programme-scoped, single-step.
+
+All registration endpoints are under /programmes/{programme_id}/...
+Lookup and listing endpoints remain at the top level.
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy.orm import Session
+
+from api.db.database import get_db
+from api.v1.models.user import User
+from api.v1.models.phone_number import PhoneNumber
+from api.v1.models.floor import HallFloors
+from api.v1.models.hall import Hall
 from api.v1.schemas.registration import (
     UserDisplay,
     UserRegistration,
     UserSummary,
     UserView,
 )
-from api.v1.schemas.phone_registration import PhoneNumberRegistration, PhoneNumberView
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from api.utils.file_upload import refresh_presigned_url_if_expired
-from api.v1.models.phone_number import PhoneNumber
-from api.utils.message import send_sms_termii, send_sms_termii_attendance_only
-from api.v1.models import phone_number, user
-from api.v1.models.floor import HallFloors
-from api.v1.models.user import User
-from sqlalchemy.orm import Session
-from api.db.database import get_db
-from datetime import datetime
-
-registration_route = APIRouter(tags=["Hall Registration"])
-
-
-# Register a User's Phone Number
-@registration_route.post("/register-number", response_model=PhoneNumberView)
-def register_phone_number(
-    payload: PhoneNumberRegistration, db: Session = Depends(get_db)
-):
-    existing = (
-        db.query(phone_number.PhoneNumber)
-        .filter(phone_number.PhoneNumber.phone_number == payload.phone_number)
-        .first()
-    )
-
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Phone number already registered.",
-        )
-
-    phone = phone_number.PhoneNumber(
-        phone_number=payload.phone_number,
-        time_registered=datetime.utcnow(),
-    )
-
-    db.add(phone)
-    db.commit()
-    db.refresh(phone)
-    return phone
-
-
-# Register a User
-@registration_route.post("/register-user/{number}", response_model=UserDisplay)
-async def register_user(
-    number: str,
-    payload: UserRegistration = Depends(UserRegistration.as_form),
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-):
-    phone = db.query(PhoneNumber).filter(PhoneNumber.phone_number == number).first()
-    if not phone:
-        raise HTTPException(404, "Phone number not found")
-
-    existing = db.query(User).filter(User.phone_number_id == phone.id).first()
-    if existing:
-        raise HTTPException(409, "User already registered")
-
-    new_user, floor = await register_user_service(
-        db=db, payload=payload, phone=phone, file=file, number=number
-    )
-
-    send_sms_termii(
-        phone_number=number,
-        name=new_user.first_name,
-        arrival_date=new_user.arrival_date,
-        hall=new_user.hall_name,
-        floor=floor.floor_no,
-        bed_no=new_user.bed_number,
-        country=new_user.country,
-    )
-
-    floor_record = (
-        db.query(HallFloors).filter(HallFloors.floor_id == floor.floor_id).first()
-    )
-
-    return {
-        "id": new_user.id,
-        "first_name": new_user.first_name,
-        "gender": new_user.gender,
-        "category": new_user.category,
-        "hall_name": new_user.hall_name,
-        "floor": "Floor {floor_record.floor_no}",
-        "bed_number": new_user.bed_number,
-        "extra_beds": new_user.extra_beds or [],
-        "phone_number": number,
-        "active_status": new_user.active_status,
-        "profile_picture_url": new_user.profile_picture_url,
-        "age_range": new_user.age_range,
-        "marital_status": new_user.marital_status,
-        "country": new_user.country,
-        "state": new_user.state,
-        "arrival_date": new_user.arrival_date,
-    }
-
-
-# Register a User Manually by allocating them another's bed space
-@registration_route.post(
-    "/register-user-manual/{number_manual_register}", response_model=UserDisplay
+from api.v1.services.registration_service import (
+    register_attendance_only,
+    register_with_accommodation,
+    register_manual,
+    register_backup,
 )
-async def register_user_manually(
-    number_manual_register: str,
-    number_late_comer: str,
-    payload: UserRegistration = Depends(UserRegistration.as_form),
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-):
+from api.utils.file_upload import refresh_presigned_url_if_expired
+from api.utils.message import send_sms_termii, send_sms_termii_attendance_only
 
-    register_phone_number_manually(phone_number=number_manual_register, db=db)
+registration_route = APIRouter(tags=["Registration"])
 
-    phone = (
-        db.query(PhoneNumber)
-        .filter(PhoneNumber.phone_number == number_manual_register)
-        .first()
-    )
-    if not phone:
-        raise HTTPException(404, "Phone number not found")
 
-    existing = db.query(User).filter(User.phone_number_id == phone.id).first()
-    if existing:
-        raise HTTPException(409, "User already registered")
+# ---------------------------------------------------------------------------
+# Helper to build display response
+# ---------------------------------------------------------------------------
 
-    new_user, floor = await manual_register_user_service(
-        db=db,
-        payload=payload,
-        phone=phone,
-        file=file,
-        number=number_manual_register,
-        late_comers_number=number_late_comer,
-    )
+def _build_user_display(user: User, phone_number: str, floor=None) -> dict:
+    """Build a standardised UserDisplay dict from a User ORM object."""
+    floor_label = None
+    if floor is not None:
+        floor_no = floor.floor_no if hasattr(floor, "floor_no") else floor
+        floor_label = f"Floor {floor_no}"
+
+    hall_name = None
+    if user.hall:
+        hall_name = user.hall.hall_name
 
     return {
-        "id": new_user.id,
-        "first_name": new_user.first_name,
-        "gender": new_user.gender,
-        "category": new_user.category,
-        "hall_name": new_user.hall_name,
-        "floor": f"Floor {floor}",
-        "bed_number": new_user.bed_number,
-        "extra_beds": new_user.extra_beds or [],
-        "phone_number": number_manual_register,
-        "active_status": new_user.active_status,
-        "profile_picture_url": new_user.profile_picture_url,
-        "age_range": new_user.age_range,
-        "marital_status": new_user.marital_status,
-        "country": new_user.country,
-        "state": new_user.state,
-        "arrival_date": new_user.arrival_date,
+        "id": user.id,
+        "first_name": user.first_name,
+        "gender": user.gender,
+        "category": user.category,
+        "registration_type": user.registration_type,
+        "registration_completed": user.registration_completed,
+        "hall_name": hall_name,
+        "floor": floor_label,
+        "bed_number": user.bed_number,
+        "extra_beds": user.extra_beds or [],
+        "phone_number": phone_number,
+        "active_status": user.active_status,
+        "profile_picture_url": user.profile_picture_url,
+        "age_range": user.age_range,
+        "marital_status": user.marital_status,
+        "country": user.country,
+        "state": user.state,
+        "arrival_date": user.arrival_date,
     }
 
 
-# Register a user for attendance only (no accommodation)
-@registration_route.post("/register-attendance-only/{number}", response_model=UserDisplay)
-async def register_attendance_only(
-    number: str,
+# ---------------------------------------------------------------------------
+# Registration endpoints (programme-scoped)
+# ---------------------------------------------------------------------------
+
+
+@registration_route.post(
+    "/programmes/{programme_id}/register-attendance",
+    response_model=UserDisplay,
+)
+async def register_attendance_endpoint(
+    programme_id: int,
     payload: UserRegistration = Depends(UserRegistration.as_form),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    phone = db.query(PhoneNumber).filter(PhoneNumber.phone_number == number).first()
-    if not phone:
-        raise HTTPException(404, "Phone number not found")
-
-    existing = db.query(User).filter(User.phone_number_id == phone.id).first()
-    if existing:
-        raise HTTPException(409, "User already registered")
-
-    new_user = await attendance_only_register_service(
-        db=db, payload=payload, phone=phone, file=file, number=number
+    """Register for attendance only (own accommodation)."""
+    is_child = payload.age_range.value == "10-17"
+    user, phone = await register_attendance_only(
+        db=db, programme_id=programme_id, payload=payload, file=file, is_child=is_child
     )
 
     send_sms_termii_attendance_only(
-        phone_number=number,
-        name=new_user.first_name,
-        arrival_date=str(new_user.arrival_date),
-        country=new_user.country,
+        phone_number=payload.phone_number,
+        name=user.first_name,
+        arrival_date=str(user.arrival_date),
+        country=user.country,
     )
 
-    return {
-        "id": new_user.id,
-        "first_name": new_user.first_name,
-        "gender": new_user.gender,
-        "category": new_user.category,
-        "hall_name": None,
-        "floor": None,
-        "bed_number": None,
-        "extra_beds": [],
-        "phone_number": number,
-        "active_status": new_user.active_status,
-        "profile_picture_url": new_user.profile_picture_url,
-        "age_range": new_user.age_range,
-        "marital_status": new_user.marital_status,
-        "country": new_user.country,
-        "state": new_user.state,
-        "arrival_date": new_user.arrival_date,
-    }
+    return _build_user_display(user, payload.phone_number)
 
 
-# Register a user using backup Spaces
 @registration_route.post(
-    "/register-user-backup/{phone_number}", response_model=UserDisplay
+    "/programmes/{programme_id}/register-with-accommodation",
+    response_model=UserDisplay,
 )
-async def backup_register(
-    phone_number: str,
+async def register_with_accommodation_endpoint(
+    programme_id: int,
     payload: UserRegistration = Depends(UserRegistration.as_form),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    register_phone_number_manually(phone_number=phone_number, db=db)
+    """Register with accommodation (triggers bed allocation)."""
+    is_child = payload.age_range.value == "10-17"
+    user, phone, floor = await register_with_accommodation(
+        db=db, programme_id=programme_id, payload=payload, file=file, is_child=is_child
+    )
 
+    send_sms_termii(
+        phone_number=payload.phone_number,
+        name=user.first_name,
+        arrival_date=str(user.arrival_date),
+        hall=user.hall.hall_name if user.hall else "N/A",
+        floor=floor.floor_no,
+        bed_no=user.bed_number,
+        country=user.country,
+    )
+
+    return _build_user_display(user, payload.phone_number, floor)
+
+
+@registration_route.post(
+    "/programmes/{programme_id}/register-manual",
+    response_model=UserDisplay,
+)
+async def register_manual_endpoint(
+    programme_id: int,
+    late_comers_number: str,
+    payload: UserRegistration = Depends(UserRegistration.as_form),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Manually register by reassigning a late-comer's bed."""
+    is_child = payload.age_range.value == "10-17"
+    user, phone = await register_manual(
+        db=db,
+        programme_id=programme_id,
+        payload=payload,
+        file=file,
+        late_comers_number=late_comers_number,
+        is_child=is_child,
+    )
+
+    return _build_user_display(user, payload.phone_number)
+
+
+@registration_route.post(
+    "/programmes/{programme_id}/register-backup",
+    response_model=UserDisplay,
+)
+async def register_backup_endpoint(
+    programme_id: int,
+    payload: UserRegistration = Depends(UserRegistration.as_form),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Register using backup/child bed slots."""
+    is_child = payload.age_range.value == "10-17"
+    user, phone, floor = await register_backup(
+        db=db, programme_id=programme_id, payload=payload, file=file, is_child=is_child
+    )
+
+    return _build_user_display(user, payload.phone_number, floor)
+
+
+# ---------------------------------------------------------------------------
+# Lookup endpoints
+# ---------------------------------------------------------------------------
+
+
+@registration_route.get("/registrations/{phone_number}", response_model=UserSummary)
+def get_registered_user_by_phone(phone_number: str, db: Session = Depends(get_db)):
+    """Look up a registered user by phone number."""
     phone = (
-        db.query(PhoneNumber).filter(PhoneNumber.phone_number == phone_number).first()
-    )
-    if not phone:
-        raise HTTPException(404, "Phone number not found")
-
-    existing = db.query(User).filter(User.phone_number_id == phone.id).first()
-    if existing:
-        raise HTTPException(409, "User already registered")
-
-    new_user, floor = await backup_user_service(
-        db=db, payload=payload, phone=phone, file=file, number=phone_number
-    )
-    floor_record = (
-        db.query(HallFloors).filter(HallFloors.floor_id == floor.floor_id).first()
-    )
-
-    return {
-        "id": new_user.id,
-        "first_name": new_user.first_name,
-        "gender": new_user.gender,
-        "category": new_user.category,
-        "hall_name": new_user.hall_name,
-        "floor": "Triple A Games are ass.....",  # f"Floor {floor_record.floor_no}",
-        "bed_number": new_user.bed_number,
-        "extra_beds": new_user.extra_beds or [],
-        "phone_number": phone_number,
-        "active_status": new_user.active_status,
-        "profile_picture_url": new_user.profile_picture_url,
-        "age_range": new_user.age_range,
-        "marital_status": new_user.marital_status,
-        "country": new_user.country,
-        "state": new_user.state,
-        "arrival_date": new_user.arrival_date,
-    }
-
-
-# Get a registered user by phone number
-@registration_route.get("/user/{number}", response_model=UserSummary)
-def get_registered_user_by_phone(number: str, db: Session = Depends(get_db)):
-    phone = (
-        db.query(phone_number.PhoneNumber)
-        .filter(phone_number.PhoneNumber.phone_number == number)
+        db.query(PhoneNumber)
+        .filter(PhoneNumber.phone_number == phone_number)
         .first()
     )
     if not phone:
         raise HTTPException(status_code=404, detail="Phone number not found.")
 
     user_record = (
-        db.query(user.User).filter(user.User.phone_number_id == phone.id).first()
+        db.query(User).filter(User.phone_number_id == phone.id).first()
     )
     if not user_record:
         raise HTTPException(
             status_code=404, detail="No user registered with this number."
         )
 
-    floor = None
-    if user_record.floor:
-        floor = (
-            db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
-        )
-
+    # Refresh profile picture URL if expired
     profile_picture_url = refresh_presigned_url_if_expired(user_record, db)
 
-    floor_no = floor.floor_no if floor else None
+    floor_label = None
+    if user_record.floor_id:
+        floor = (
+            db.query(HallFloors)
+            .filter(HallFloors.floor_id == user_record.floor_id)
+            .first()
+        )
+        if floor:
+            floor_label = f"Floor {floor.floor_no}"
 
-    return {
-        "id": user_record.id,
-        "first_name": user_record.first_name,
-        "category": user_record.category,
-        "hall_name": user_record.hall_name if user_record.hall_name else None,
-        "floor": f"Floor {floor_no}" if floor_no else None,
-        "bed_number": user_record.bed_number,
-        "extra_beds": user_record.extra_beds or [],
-        "phone_number": phone.phone_number,
-        "active_status": user_record.active_status,
-        "profile_picture_url": profile_picture_url,
-        "gender": user_record.gender,
-        "children_names": user_record.names_children,
-        "children_no": user_record.no_children,
-        "local_assembly": user_record.local_assembly,
-        "local_assembly_address": user_record.local_assembly_address,
-        "Medical_issues": user_record.medical_issues,
-        "status": user_record.active_status,
-        "arrival_date": user_record.arrival_date,
-        "state": user_record.state,
-    }
+    hall_name = None
+    if user_record.hall:
+        hall_name = user_record.hall.hall_name
 
-
-# Return all users
-@registration_route.get("/users", response_model=list[UserSummary])
-def get_all_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
-    # 1. Fetch only the current page of users
-    users = (
-        db.query(user.User)
-        .order_by(user.User.id)  # <--- Add this
-        .offset(skip)
-        .limit(limit)
-        .all()
+    return UserSummary(
+        id=user_record.id,
+        first_name=user_record.first_name,
+        category=user_record.category,
+        registration_type=user_record.registration_type,
+        registration_completed=user_record.registration_completed,
+        hall_name=hall_name,
+        floor=floor_label,
+        bed_number=user_record.bed_number,
+        extra_beds=user_record.extra_beds or [],
+        phone_number=phone.phone_number,
+        active_status=user_record.active_status,
+        profile_picture_url=profile_picture_url,
+        gender=user_record.gender,
+        local_assembly=user_record.local_assembly,
+        local_assembly_address=user_record.local_assembly_address,
+        medical_issues=user_record.medical_issues,
+        arrival_date=user_record.arrival_date,
+        state=user_record.state,
     )
 
-    # 2. Extract IDs for just THESE users to keep our maps small
-    user_phone_ids = [u.phone_number_id for u in users if u.phone_number_id]
-    user_floor_ids = [u.floor for u in users if u.floor]
 
-    # 3. Targeted Phone Map: Only fetch phones for the users on this page
+@registration_route.get(
+    "/programmes/{programme_id}/registrations", response_model=list[UserSummary]
+)
+def get_programme_registrations(
+    programme_id: int,
+    status: str = None,
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+):
+    """
+    List registrations for a programme.
+
+    Optional query param `status` filters by active_status (e.g. ?status=active).
+    """
+    query = (
+        db.query(User)
+        .filter(User.programme_id == programme_id)
+    )
+
+    if status:
+        query = query.filter(User.active_status == status)
+
+    users = query.order_by(User.id).offset(skip).limit(limit).all()
+
+    # Batch-load phone numbers and floors to avoid N+1
+    phone_ids = [u.phone_number_id for u in users if u.phone_number_id]
+    floor_ids = [u.floor_id for u in users if u.floor_id]
+
     phone_map = {
-        record.id: record.phone_number
-        for record in db.query(phone_number.PhoneNumber)
-        .filter(phone_number.PhoneNumber.id.in_(user_phone_ids))
-        .all()
-    }
+        p.id: p.phone_number
+        for p in db.query(PhoneNumber).filter(PhoneNumber.id.in_(phone_ids)).all()
+    } if phone_ids else {}
 
-    # 4. Targeted Floor Map: This fixes the N+1 problem for floors too!
     floor_map = {
         f.floor_id: f.floor_no
-        for f in db.query(HallFloors)
-        .filter(HallFloors.floor_id.in_(user_floor_ids))
-        .all()
-    }
+        for f in db.query(HallFloors).filter(HallFloors.floor_id.in_(floor_ids)).all()
+    } if floor_ids else {}
 
-    # 5. Build the response using our localized maps
+    hall_ids = [u.hall_id for u in users if u.hall_id]
+    hall_map = {
+        h.id: h.hall_name
+        for h in db.query(Hall).filter(Hall.id.in_(hall_ids)).all()
+    } if hall_ids else {}
+
     return [
         UserSummary(
             id=u.id,
             first_name=u.first_name,
             category=u.category,
-            hall_name=u.hall_name if u.hall_name else None,
-            floor=f"Floor {floor_map.get(u.floor)}" if u.floor in floor_map else None,
+            registration_type=u.registration_type,
+            registration_completed=u.registration_completed,
+            hall_name=hall_map.get(u.hall_id),
+            floor=(
+                f"Floor {floor_map[u.floor_id]}"
+                if u.floor_id and u.floor_id in floor_map
+                else None
+            ),
             bed_number=u.bed_number,
             extra_beds=u.extra_beds or [],
             phone_number=phone_map.get(u.phone_number_id, "Unknown"),
@@ -366,111 +308,73 @@ def get_all_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 100
     ]
 
 
-# Change a users active status from inactive to active
-@registration_route.put("/activate-user/{phone_number}", response_model=UserView)
-def activate_user(number: str, db: Session = Depends(get_db)):
-    # Get the PhoneNumber object
-    phone = db.query(PhoneNumber).filter(PhoneNumber.phone_number == number).first()
+# ---------------------------------------------------------------------------
+# Status management
+# ---------------------------------------------------------------------------
+
+
+@registration_route.put(
+    "/registrations/{phone_number}/activate", response_model=UserView
+)
+def activate_user(phone_number: str, db: Session = Depends(get_db)):
+    """Activate a user (change status from inactive → active)."""
+    phone = (
+        db.query(PhoneNumber)
+        .filter(PhoneNumber.phone_number == phone_number)
+        .first()
+    )
     if not phone:
         raise HTTPException(status_code=404, detail="Phone number not found.")
 
-    # Get the user by phone_number_id
     user_record = (
-        db.query(user.User).filter(user.User.phone_number_id == phone.id).first()
+        db.query(User).filter(User.phone_number_id == phone.id).first()
     )
     if not user_record:
         raise HTTPException(status_code=404, detail="User not found.")
 
-    # Check the user's current status
     if user_record.active_status == "active":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="User is already Enrolled"
-        )
+        raise HTTPException(status_code=400, detail="User is already active.")
+
     user_record.active_status = "active"
     db.commit()
     db.refresh(user_record)
-    floor_record = None
-    if user_record.floor:
+
+    floor_label = None
+    if user_record.floor_id:
         floor_record = (
-            db.query(HallFloors).filter(HallFloors.floor_id == user_record.floor).first()
+            db.query(HallFloors)
+            .filter(HallFloors.floor_id == user_record.floor_id)
+            .first()
         )
-    floor_no = floor_record.floor_no if floor_record else None
+        if floor_record:
+            floor_label = f"Floor {floor_record.floor_no}"
+
+    hall_name = None
+    if user_record.hall:
+        hall_name = user_record.hall.hall_name
+
     return UserView(
         id=user_record.id,
         first_name=user_record.first_name,
+        gender=user_record.gender,
         category=user_record.category,
-        hall_name=user_record.hall_name,
-        floor=f"Floor {floor_no}" if floor_no else None,
+        registration_type=user_record.registration_type,
+        registration_completed=user_record.registration_completed,
+        hall_name=hall_name,
+        floor=floor_label,
         bed_number=user_record.bed_number,
         extra_beds=user_record.extra_beds or [],
         phone_number=phone.phone_number,
-        gender=user_record.gender,
-        age_range=user_record.age_range,
-        marital_status=user_record.marital_status,
-        medical_issues=user_record.medical_issues,
-        state=user_record.state,
-        country=user_record.country,
-        arrival_date=user_record.arrival_date,
-        no_children=user_record.no_children,
-        local_assembly=user_record.local_assembly,
-        local_assembly_address=user_record.local_assembly_address,
-        names_children=user_record.names_children,
         active_status=user_record.active_status,
         profile_picture_url=user_record.profile_picture_url,
+        age_range=user_record.age_range,
+        marital_status=user_record.marital_status,
+        country=user_record.country,
+        state=user_record.state,
+        arrival_date=user_record.arrival_date,
+        no_children=user_record.no_children,
+        names_children=user_record.names_children,
+        medical_issues=user_record.medical_issues,
+        local_assembly=user_record.local_assembly,
+        local_assembly_address=user_record.local_assembly_address,
     )
-
-
-# return all active users
-@registration_route.get("/active-users", response_model=list[UserSummary])
-def get_active_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
-    # 1. Fetch only ACTIVE users for the current page, with consistent ordering
-    users = (
-        db.query(user.User)
-        .filter(user.User.active_status == "active")
-        .order_by(user.User.id)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
-
-    # 2. Collect IDs for Phones and Floors from just this batch of users
-    user_phone_ids = [u.phone_number_id for u in users if u.phone_number_id]
-    user_floor_ids = [u.floor for u in users if u.floor]
-
-    # 3. Targeted Phone Mapping
-    phone_map = {
-        record.id: record.phone_number
-        for record in db.query(phone_number.PhoneNumber)
-        .filter(phone_number.PhoneNumber.id.in_(user_phone_ids))
-        .all()
-    }
-
-    # 4. Targeted Floor Mapping (Fixes the slow internal db.query loop)
-    floor_map = {
-        f.floor_id: f.floor_no
-        for f in db.query(HallFloors)
-        .filter(HallFloors.floor_id.in_(user_floor_ids))
-        .all()
-    }
-
-    # 5. Return the mapped results
-    return [
-        UserSummary(
-            id=u.id,
-            first_name=u.first_name,
-            category=u.category,
-            hall_name=u.hall_name if u.hall_name else None,
-            floor=(f"Floor {floor_map.get(u.floor)}" if u.floor in floor_map else None),
-            bed_number=u.bed_number,
-            extra_beds=u.extra_beds or [],
-            phone_number=phone_map.get(u.phone_number_id, "Unknown"),
-            active_status=u.active_status,
-            profile_picture_url=u.profile_picture_url,
-            local_assembly=u.local_assembly,
-            local_assembly_address=u.local_assembly_address,
-            arrival_date=u.arrival_date,
-            state=u.state,
-            gender=u.gender,
-        )
-        for u in users
-    ]

@@ -28,4 +28,6 @@ class HallFloors(Base):
     counter_value = Column(Integer, nullable=True, default=0)
 
     hall_relationship = relationship("Hall", back_populates="floors")
-    user_floor = relationship("User", back_populates="floor_relationship")
+    user_floor = relationship(
+        "User", back_populates="floor_relationship", foreign_keys="[User.floor_id]"
+    )
