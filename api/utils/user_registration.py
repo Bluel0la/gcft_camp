@@ -178,6 +178,10 @@ async def backup_user_service(
 
 
 def register_phone_number_manually(phone_number, db):
+    existing = db.query(PhoneNumber).filter(PhoneNumber.phone_number == phone_number).first()
+    if existing:
+        return existing
+
     phone = PhoneNumber(
         phone_number=phone_number,
         time_registered=datetime.utcnow(),

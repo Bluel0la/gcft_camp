@@ -120,13 +120,8 @@ async def register_user_manually(
     db: Session = Depends(get_db),
 ):
 
-    register_phone_number_manually(phone_number=number_manual_register, db=db)
+    phone = register_phone_number_manually(phone_number=number_manual_register, db=db)
 
-    phone = (
-        db.query(PhoneNumber)
-        .filter(PhoneNumber.phone_number == number_manual_register)
-        .first()
-    )
     if not phone:
         raise HTTPException(404, "Phone number not found")
 
@@ -220,11 +215,8 @@ async def backup_register(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    register_phone_number_manually(phone_number=phone_number, db=db)
+    phone = register_phone_number_manually(phone_number=phone_number, db=db)
 
-    phone = (
-        db.query(PhoneNumber).filter(PhoneNumber.phone_number == phone_number).first()
-    )
     if not phone:
         raise HTTPException(404, "Phone number not found")
 
