@@ -17,8 +17,14 @@ def get_db_engine():
 
     DATABASE_URL = os.getenv("DB_URL")
 
-    # Create the engine based on the URL
-    db_engine = create_engine(DATABASE_URL, pool_size=32, max_overflow=64)
+    # Create the engine with a more conservative pool size to avoid Supabase connection pool limits
+    db_engine = create_engine(
+        DATABASE_URL, 
+        pool_size=5, 
+        max_overflow=10,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+    )
 
     return db_engine
 
