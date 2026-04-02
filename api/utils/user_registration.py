@@ -1,4 +1,4 @@
-from api.utils.bed_allocation import allocate_bed, fetch_user_information_for_reallocation, update_lateuser_information
+from api.utils.bed_allocation import allocate_bed, fetch_user_information_for_reallocation
 from api.utils.file_upload import process_and_upload_image, delete_from_s3
 from api.utils.bed_allocation import validate_gender, allocate_backup_bed
 from api.utils.bed_allocation import compute_hall_statistics
