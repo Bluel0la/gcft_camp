@@ -83,7 +83,7 @@ def fetch_user_information_for_reallocation(
     db: Session,
     late_comers_number: str,
     no_children: int,
-) -> Tuple[Hall, HallFloors, List[str]]:
+) -> Tuple[Hall, HallFloors, List[str], User, PhoneNumber]:
 
     phone = (
         db.query(PhoneNumber)
@@ -110,6 +110,8 @@ def fetch_user_information_for_reallocation(
         user_record.hall,
         user_record.floor,
         beds,
+        user_record,
+        phone,
     )
 
 

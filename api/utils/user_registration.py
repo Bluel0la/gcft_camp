@@ -99,7 +99,7 @@ async def manual_register_user_service(
     gender = validate_gender(payload.category)
     payload.no_children = payload.no_children or 0
 
-    hall, floor, beds = fetch_user_information_for_reallocation(
+    hall, floor, beds, late_comer_user, late_comer_phone = fetch_user_information_for_reallocation(
         db, late_comers_number, payload.no_children
     )
 
@@ -115,6 +115,12 @@ async def manual_register_user_service(
             file, payload.first_name, number
         )
 
+        # Delete the late comer FIRST, before creating the new user.
+        # Both the delete and the insert will be committed together
+        # inside persist_user's db.commit(), keeping it atomic.
+        db.delete(late_comer_user)
+        db.delete(late_comer_phone)
+
         user = persist_user(
             db=db,
             payload=payload,
@@ -128,7 +134,6 @@ async def manual_register_user_service(
             active_status="active",
         )
 
-        update_lateuser_information(db, late_comers_number)
         return user, floor
 
     except Exception:
