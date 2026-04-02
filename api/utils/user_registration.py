@@ -1,4 +1,7 @@
-from api.utils.bed_allocation import allocate_bed, fetch_user_information_for_reallocation
+from api.utils.bed_allocation import (
+    allocate_bed,
+    fetch_user_information_for_reallocation,
+)
 from api.utils.file_upload import process_and_upload_image, delete_from_s3
 from api.utils.bed_allocation import validate_gender, allocate_backup_bed
 from api.utils.bed_allocation import compute_hall_statistics
@@ -10,8 +13,18 @@ from fastapi import HTTPException
 from datetime import datetime
 
 
-
-def persist_user(db: Session, payload, phone, hall, floor_id, beds, gender: str, image_url: str, object_key: str, active_status: str | None = None ):
+def persist_user(
+    db: Session,
+    payload,
+    phone,
+    hall,
+    floor_id,
+    beds,
+    gender: str,
+    image_url: str,
+    object_key: str,
+    active_status: str | None = None,
+):
     user = User(
         first_name=payload.first_name,
         category=payload.category,
@@ -99,8 +112,10 @@ async def manual_register_user_service(
     gender = validate_gender(payload.category)
     payload.no_children = payload.no_children or 0
 
-    hall, floor, beds, late_comer_user, late_comer_phone = fetch_user_information_for_reallocation(
-        db, late_comers_number, payload.no_children
+    hall, floor, beds, late_comer_user, late_comer_phone = (
+        fetch_user_information_for_reallocation(
+            db, late_comers_number, payload.no_children
+        )
     )
 
     if not hall:
@@ -131,7 +146,6 @@ async def manual_register_user_service(
             gender=gender,
             image_url=image_url,
             object_key=object_key,
-            active_status="active",
         )
 
         return user, floor
@@ -142,11 +156,8 @@ async def manual_register_user_service(
             delete_from_s3(object_key)
         raise
 
-async def backup_user_service(
-    db: Session,
-    payload,
-    phone, file, number
-):
+
+async def backup_user_service(db: Session, payload, phone, file, number):
     gender = validate_gender(payload.category)
     hall, floor, beds = allocate_backup_bed(db, gender, payload)
     if not hall:
@@ -170,7 +181,7 @@ async def backup_user_service(
             gender=gender,
             image_url=image_url,
             object_key=object_key,
-            active_status="active"
+            active_status="active",
         )
 
         return user, floor
@@ -183,7 +194,9 @@ async def backup_user_service(
 
 
 def register_phone_number_manually(phone_number, db):
-    existing = db.query(PhoneNumber).filter(PhoneNumber.phone_number == phone_number).first()
+    existing = (
+        db.query(PhoneNumber).filter(PhoneNumber.phone_number == phone_number).first()
+    )
     if existing:
         return existing
 

@@ -466,3 +466,54 @@ def get_active_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 
         )
         for u in users
     ]
+
+
+# Return all inactive/unverified users
+@registration_route.get("/inactive-users", response_model=list[UserSummary])
+def get_inactive_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
+    users = (
+        db.query(user.User)
+        .filter(user.User.active_status != "active")
+        .order_by(user.User.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    user_phone_ids = [u.phone_number_id for u in users if u.phone_number_id]
+    user_floor_ids = [u.floor for u in users if u.floor]
+
+    phone_map = {
+        record.id: record.phone_number
+        for record in db.query(phone_number.PhoneNumber)
+        .filter(phone_number.PhoneNumber.id.in_(user_phone_ids))
+        .all()
+    }
+
+    floor_map = {
+        f.floor_id: f.floor_no
+        for f in db.query(HallFloors)
+        .filter(HallFloors.floor_id.in_(user_floor_ids))
+        .all()
+    }
+
+    return [
+        UserSummary(
+            id=u.id,
+            first_name=u.first_name,
+            category=u.category,
+            hall_name=u.hall_name if u.hall_name else None,
+            floor=(f"Floor {floor_map.get(u.floor)}" if u.floor in floor_map else None),
+            bed_number=u.bed_number,
+            extra_beds=u.extra_beds or [],
+            phone_number=phone_map.get(u.phone_number_id, "Unknown"),
+            active_status=u.active_status,
+            profile_picture_url=u.profile_picture_url,
+            local_assembly=u.local_assembly,
+            local_assembly_address=u.local_assembly_address,
+            arrival_date=u.arrival_date,
+            state=u.state,
+            gender=u.gender,
+        )
+        for u in users
+    ]
