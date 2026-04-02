@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
@@ -17,13 +18,13 @@ def get_db_engine():
 
     DATABASE_URL = os.getenv("DB_URL")
 
-    # Create the engine with a more conservative pool size to avoid Supabase connection pool limits
+    # Use NullPool when connecting through Supabase's PgBouncer pooler.
+    # SQLAlchemy must NOT maintain its own pool on top of PgBouncer —
+    # that causes double-pooling and exhausts PgBouncer's client slots.
     db_engine = create_engine(
-        DATABASE_URL, 
-        pool_size=5, 
-        max_overflow=10,
+        DATABASE_URL,
+        poolclass=NullPool,
         pool_pre_ping=True,
-        pool_recycle=1800,
     )
 
     return db_engine
