@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from api.utils.file_upload import process_and_upload_image, delete_from_s3
 from api.utils.bed_allocation import allocate_minister_manually
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from datetime import date, datetime, timezone
 from typing import List
@@ -18,6 +18,7 @@ from api.v1.schemas.ticketing import (
     MealMarkInput,
     MealRecordOut,
     MinisterStatusOut,
+    DailyMealSummaryOut,
 )
 
 ticketing_route = APIRouter(prefix="/ticketing", tags=["Ticketing System"])
@@ -227,3 +228,36 @@ def get_pending_ministers(meal_type: str, db: Session = Depends(get_db)):
     )
 
     return pending_ministers
+
+
+# Endpoint to fetch meal summary for a specific day
+@ticketing_route.get("/meals/summary/{target_date}", response_model=DailyMealSummaryOut)
+def get_daily_meal_summary(target_date: date, db: Session = Depends(get_db)):
+    """
+    Fetch all ministers who have eaten on a specific date, broken down by meal period.
+    """
+    records = (
+        db.query(MealRecord)
+        .options(joinedload(MealRecord.minister))
+        .filter(MealRecord.date == target_date)
+        .all()
+    )
+
+    breakfast = []
+    lunch = []
+    dinner = []
+
+    for record in records:
+        if record.meal_type == "breakfast":
+            breakfast.append(record.minister)
+        elif record.meal_type == "lunch":
+            lunch.append(record.minister)
+        elif record.meal_type == "dinner":
+            dinner.append(record.minister)
+
+    return DailyMealSummaryOut(
+        date=target_date,
+        breakfast=breakfast,
+        lunch=lunch,
+        dinner=dinner
+    )

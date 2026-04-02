@@ -121,3 +121,10 @@ class MinisterStatusOut(BaseModel):
     minister: MinisterOut
     total_meals_taken: int
     meal_dates: list[date]
+
+
+class DailyMealSummaryOut(BaseModel):
+    date: date
+    breakfast: list[MinisterOut]
+    lunch: list[MinisterOut]
+    dinner: list[MinisterOut]
