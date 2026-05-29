@@ -10,7 +10,12 @@ class Hall(Base):
     hall_name = Column(String, unique=True, nullable=False)
     no_beds = Column(Integer, nullable=True)
     no_floors = Column(Integer, nullable=False)
-    gender = Column(String(), nullable=False)
+    gender = Column(String, nullable=False)
 
     residents = relationship("User", back_populates="hall")
-    floors = relationship("HallFloors", back_populates="hall_relationship", cascade="all, delete-orphan", passive_deletes=True)
+    floors = relationship(
+        "HallFloors",
+        back_populates="hall_relationship",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

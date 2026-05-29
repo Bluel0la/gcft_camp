@@ -1,26 +1,9 @@
-from pydantic import BaseModel, ConfigDict, model_validator, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from datetime import date, datetime
 from fastapi import Form
-from enum import Enum
 from uuid import UUID
-
-
-class MealType(str, Enum):
-    breakfast = "breakfast"
-    lunch = "lunch"
-    dinner = "dinner"
-
-
-class AgeRangeEnum(str, Enum):
-    age_10_17 = "10-17"
-    age_18_25 = "18-25"
-    age_26_35 = "26-35"
-    age_36_45 = "36-45"
-    age_45_55 = "46-55"
-    age_56_65 = "56-65"
-    age_66_70 = "66-70"
-    age_71_plus = "71+"
+from api.v1.schemas.enums import AgeRangeEnum, MealType
 
 
 class MinisterBase(BaseModel):
@@ -43,7 +26,7 @@ class MinisterCreate(MinisterBase):
     local_assembly_address: Optional[str] = None
     # Manual hall allocation fields
     hall_name: Optional[str] = None
-    floor_id: Optional[UUID] = Form(None)  # UUID as string
+    floor_id: Optional[UUID] = Form(None)
     bed_number: Optional[str] = None
 
     @classmethod
